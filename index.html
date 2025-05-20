@@ -424,45 +424,46 @@ document.querySelectorAll('.range-btn').forEach(btn=>{
   };
 });
 
+new Vue({
+    el: '#app',
+    data: {
+      neueAusgabe: '',
+      ausgaben: []
+    },
+    created() {
+      db.collection('ausgaben')
+        .orderBy('timestamp', 'desc')
+        .onSnapshot(snapshot => {
+          this.ausgaben = [];
+          snapshot.forEach(doc => {
+            this.ausgaben.push({ id: doc.id, ...doc.data() });
+          });
+        });
+    },
+    methods: {
+      addAusgabe() {
+        const text = this.neueAusgabe.trim();
+        if (!text) return;
+
+        db.collection('ausgaben').add({
+          text: text,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        this.neueAusgabe = '';
+      },
+      deleteAusgabe(id) {
+        db.collection('ausgaben').doc(id).delete();
+      }
+    }
+  });
+
+
 /* ---------- Init ---------- */
 updateQuickCategories();
 document.querySelector('[data-range="'+currentRange+'"]').classList.add('bg-blue-800');
 refreshAll();
 </script>
-<script>
-    new Vue({
-      el: '#app',
-      data: {
-        neueAusgabe: '',
-        ausgaben: []
-      },
-      created() {
-        db.collection('ausgaben')
-          .orderBy('timestamp', 'desc')
-          .onSnapshot(snapshot => {
-            this.ausgaben = [];
-            snapshot.forEach(doc => {
-              this.ausgaben.push({ id: doc.id, ...doc.data() });
-            });
-          });
-      },
-      methods: {
-        addAusgabe() {
-          const text = this.neueAusgabe.trim();
-          if (!text) return;
-  
-          db.collection('ausgaben').add({
-            text: text,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-          });
-  
-          this.neueAusgabe = '';
-        },
-        deleteAusgabe(id) {
-          db.collection('ausgaben').doc(id).delete();
-        }
-      }
-    });
-  </script>
+
 </body>
 </html>
