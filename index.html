@@ -108,19 +108,7 @@
     <canvas id="categoryChart" class="bg-white rounded shadow"></canvas>
   </div>
 </div>
-<div id="app">
-    <h1>Ausgaben Tracker</h1>
-  
-    <input v-model="neueAusgabe" @keyup.enter="addAusgabe" placeholder="Neue Ausgabe">
-    <button @click="addAusgabe">Hinzufügen</button>
-  
-    <ul>
-      <li v-for="eintrag in ausgaben" :key="eintrag.id">
-        {{ eintrag.text }}
-        <button @click="deleteAusgabe(eintrag.id)">🗑️</button>
-      </li>
-    </ul>
-  </div>
+
 
 <!-- ================= SCRIPT ================= -->
 <script>
@@ -133,7 +121,8 @@ const load = key => JSON.parse(localStorage.getItem(key) || 'null');
 const save = (key,val) => localStorage.setItem(key,JSON.stringify(val));
 
 /* ---------- Globale Variablen ---------- */
-let data            = load(ENTRY_KEY) || [];
+let data = [];                        // Einträge aus Firestore
+let unsubscribe = null;               // für das Live‑Abo
 let quickCategories = load(CAT_KEY)   || [
   {cat:'auto',    icon:'🚗'},
   {cat:'wohnung', icon:'🏠'},
@@ -175,6 +164,15 @@ function hideQuickCatMenu(){
     qcMenu = null;
     document.removeEventListener('click', hideQuickCatMenu);
   }
+}
+
+/*************** Firestore – Live Feed ***************/
+function initFirestoreFeed(){
+  if(unsubscribe) unsubscribe();
+  unsubscribe = db.collection('entries').orderBy('date','desc').onSnapshot(snap=>{
+    data = snap.docs.map(doc=>({id:doc.id, ...doc.data()}));
+    refreshAll();
+  });
 }
 
 /* ---------- Utils ---------- */
@@ -287,39 +285,31 @@ function updateQuickCategories(){
   box.appendChild(plus);
 }
 
-/* ---------- Daten‑Filter ---------- */
+/*************** Daten‑Filter ***************/
 function getFilteredData(){
   const filter=document.getElementById('filterInput').value.toLowerCase();
   const now=new Date();
   return data.filter(e=>{
     if(!e.category.toLowerCase().includes(filter)) return false;
     const d=new Date(e.date);
-    if(currentRange==='current') return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+    if(currentRange==='current') return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
     if(currentRange==='last'){
       const lm=new Date(now.getFullYear(),now.getMonth()-1,1);
-      return d.getMonth()===lm.getMonth() && d.getFullYear()===lm.getFullYear();
+      return d.getMonth()===lm.getMonth()&&d.getFullYear()===lm.getFullYear();
     }
     return true;
   });
 }
-
-/* ---------- Rendering ---------- */
+/*************** Rendering (wie bisher, aber mit Firestore‑IDs) ***************/
 function renderEntries(list){
   const ul=document.getElementById('entries');ul.innerHTML='';
   [...list].reverse().forEach(e=>{
     const li=document.createElement('li');
     li.className='flex justify-between items-center bg-white p-3 rounded shadow';
-    li.innerHTML=`
-      <div>
-        <span>${new Date(e.date).toLocaleDateString('de-DE')} — ${e.category}</span>
-        <span class="block text-sm text-gray-500">${e.amount.toFixed(2)} €</span>
-      </div>
-      <button class="text-red-500 hover:text-red-700 font-bold" data-id="${e.date}">✕</button>`;
+    li.innerHTML=`<div><span>${new Date(e.date).toLocaleDateString('de-DE')} — ${e.category}</span><span class='block text-sm text-gray-500'>${e.amount.toFixed(2)} €</span></div><button class='text-red-500 hover:text-red-700 font-bold' data-id='${e.id}'>✕</button>`;
     ul.appendChild(li);
   });
-  ul.querySelectorAll('button[data-id]').forEach(b=>{
-    b.onclick=()=>{data=data.filter(x=>x.date!==b.dataset.id);save(ENTRY_KEY,data);refreshAll();};
-  });
+  ul.querySelectorAll('button[data-id]').forEach(b=>{ b.onclick=()=>db.collection('entries').doc(b.dataset.id).delete(); });
 }
 
 function renderSummary(list){
@@ -423,40 +413,23 @@ document.querySelectorAll('.range-btn').forEach(btn=>{
     refreshAll();
   };
 });
+/*************** Formular‑Submit → Firestore ***************/
+document.getElementById('expenseForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const amount=parseFloat(document.getElementById('amount').value);
+  if(!selectedCat){document.getElementById('catWarning').classList.remove('hidden');return;}
+  if(amount>0){
+    await db.collection('entries').add({ amount, category:selectedCat, date:new Date().toISOString() });
+    document.getElementById('expenseForm').reset();
+    // keine weitere Aktion nötig – onSnapshot aktualisiert UI
+  }
+});
 
-new Vue({
-    el: '#app',
-    data: {
-      neueAusgabe: '',
-      ausgaben: []
-    },
-    created() {
-      db.collection('ausgaben')
-        .orderBy('timestamp', 'desc')
-        .onSnapshot(snapshot => {
-          this.ausgaben = [];
-          snapshot.forEach(doc => {
-            this.ausgaben.push({ id: doc.id, ...doc.data() });
-          });
-        });
-    },
-    methods: {
-      addAusgabe() {
-        const text = this.neueAusgabe.trim();
-        if (!text) return;
+document.getElementById('filterInput').addEventListener('input',refreshAll);
+document.querySelectorAll('.range-btn').forEach(btn=>{
+  btn.onclick=()=>{ currentRange=btn.dataset.range; document.querySelectorAll('.range-btn').forEach(b=>b.classList.remove('bg-blue-800')); btn.classList.add('bg-blue-800'); refreshAll(); };
+});
 
-        db.collection('ausgaben').add({
-          text: text,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        this.neueAusgabe = '';
-      },
-      deleteAusgabe(id) {
-        db.collection('ausgaben').doc(id).delete();
-      }
-    }
-  });
 
 
 /* ---------- Init ---------- */
