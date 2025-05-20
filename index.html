@@ -7,6 +7,23 @@
 
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- index.html -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyBx817oguNx2crLpnJfg70Z8ju7pDA-rt4",
+  authDomain: "ausgabentracker-81c6b.firebaseapp.com",
+  projectId: "ausgabentracker-81c6b",
+  storageBucket: "ausgabentracker-81c6b.firebasestorage.app",
+  messagingSenderId: "285156700598",
+  appId: "1:285156700598:web:a1a56f2cb5189bdc259117",
+  measurementId: "G-S2P74YLDL0"
+    };
+  
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+  </script>
 
   <style>
     /* Modal‑Backdrop */
@@ -91,6 +108,19 @@
     <canvas id="categoryChart" class="bg-white rounded shadow"></canvas>
   </div>
 </div>
+<div id="app">
+    <h1>Ausgaben Tracker</h1>
+  
+    <input v-model="neueAusgabe" @keyup.enter="addAusgabe" placeholder="Neue Ausgabe">
+    <button @click="addAusgabe">Hinzufügen</button>
+  
+    <ul>
+      <li v-for="eintrag in ausgaben" :key="eintrag.id">
+        {{ eintrag.text }}
+        <button @click="deleteAusgabe(eintrag.id)">🗑️</button>
+      </li>
+    </ul>
+  </div>
 
 <!-- ================= SCRIPT ================= -->
 <script>
@@ -399,5 +429,40 @@ updateQuickCategories();
 document.querySelector('[data-range="'+currentRange+'"]').classList.add('bg-blue-800');
 refreshAll();
 </script>
+<script>
+    new Vue({
+      el: '#app',
+      data: {
+        neueAusgabe: '',
+        ausgaben: []
+      },
+      created() {
+        db.collection('ausgaben')
+          .orderBy('timestamp', 'desc')
+          .onSnapshot(snapshot => {
+            this.ausgaben = [];
+            snapshot.forEach(doc => {
+              this.ausgaben.push({ id: doc.id, ...doc.data() });
+            });
+          });
+      },
+      methods: {
+        addAusgabe() {
+          const text = this.neueAusgabe.trim();
+          if (!text) return;
+  
+          db.collection('ausgaben').add({
+            text: text,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+          });
+  
+          this.neueAusgabe = '';
+        },
+        deleteAusgabe(id) {
+          db.collection('ausgaben').doc(id).delete();
+        }
+      }
+    });
+  </script>
 </body>
 </html>
