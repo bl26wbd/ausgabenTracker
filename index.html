@@ -1,224 +1,403 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Expense Tracker</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    /* Modal‑Backdrop */
+    .modal-backdrop{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+                    background:rgba(0,0,0,.45);z-index:50;}
+
+    /* (❌‑Stile bleiben, falls du sie später wieder brauchst) */
+    .cat-del{position:absolute;top:-6px;right:-6px;width:18px;height:18px;font-size:12px;line-height:18px;
+             background:#dc2626;color:#fff;border-radius:9999px;cursor:pointer;}
+
+    /* Kontextmenü */
+    .context-menu{
+      position:absolute;background:#fff;border:1px solid #ccc;padding:10px;z-index:1000;cursor:pointer;
+      box-shadow:0 2px 6px rgba(0,0,0,.2);user-select:none;
+    }
+  </style>
 </head>
 <body class="bg-gray-50 p-4">
-  <div id="app" class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
-    <div>
-      <h1 class="text-2xl font-bold mb-4 text-center">💸 Expense Tracker</h1>
+<div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
 
-      <!-- Eingabe-Formular -->
-      <form id="expenseForm" class="space-y-3">
-        <input type="number" step="0.01" min="0" placeholder="Betrag (€)" id="amount" required class="w-full p-3 border rounded focus:outline-none focus:ring" />
-        <input type="text" placeholder="Kategorie (z. B. Kaffee, Bahn, …)" id="category" required class="w-full p-3 border rounded focus:outline-none focus:ring" />
-        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded font-semibold">Eintrag speichern</button>
-      </form>
+  <!-- ========= EINGABE & FILTER ========= -->
+  <div class="md:col-span-1">
+    <h1 class="text-2xl font-bold mb-4 text-center">💸 Expense Tracker</h1>
 
-      <!-- Einträge-Liste -->
-      <h2 class="text-xl font-semibold mt-8 mb-2">Einträge</h2>
-      <ul id="entries" class="space-y-2"></ul>
+    <!-- Formular -->
+    <form id="expenseForm" class="space-y-3">
+      <input type="number" step="0.01" min="0" placeholder="Betrag (€)" id="amount"
+             required class="w-full p-3 border rounded focus:outline-none focus:ring" />
 
-      <!-- Monatsübersicht -->
-      <h2 class="text-xl font-semibold mt-8 mb-2">Übersicht dieses Monats</h2>
-      <ul id="summary" class="space-y-2"></ul>
+      <!-- Schnellkategorien -->
+      <div id="quickCategories" class="flex flex-wrap gap-2"></div>
+      <p id="catWarning" class="text-red-600 text-sm hidden">Bitte eine Kategorie auswählen !</p>
+
+      <button type="submit"
+              class="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded font-semibold">
+        Eintrag speichern
+      </button>
+    </form>
+
+    <!-- Kategorie‑Filter -->
+    <div class="mt-6">
+      <input id="filterInput" placeholder="🔍 Nach Kategorie filtern"
+             class="w-full p-2 border rounded" />
     </div>
 
-    <!-- Diagramm -->
-    <div>
-      <h2 class="text-xl font-semibold mb-2 text-center">Monatlicher Verlauf</h2>
-      <canvas id="monthlyChart" class="bg-white rounded shadow"></canvas>
-
-      <!-- Auflistung der letzten Monate -->
-      <h3 class="text-lg font-medium mt-6 mb-2 text-center">Monate im Überblick</h3>
-      <ul id="monthList" class="space-y-2"></ul>
+    <!-- Zeitraum‑Buttons -->
+    <div class="mt-4 flex justify-center space-x-4">
+      <button data-range="current"
+              class="range-btn bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-semibold shadow">
+        📆
+      </button>
+      <button data-range="last"
+              class="range-btn bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-semibold shadow">
+        ⏪
+      </button>
+      <button data-range="all"
+              class="range-btn bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-semibold shadow">
+        📊
+      </button>
     </div>
+
+    <!-- Einträge -->
+    <h2 class="text-xl font-semibold mt-8 mb-2">Einträge</h2>
+    <ul id="entries" class="space-y-2"></ul>
   </div>
 
-  <script>
-    const STORAGE_KEY = 'expense_tracker_v1';
+  <!-- ========= ÜBERSICHT ========= -->
+  <div class="md:col-span-1">
+    <h2 class="text-xl font-semibold mb-4 text-center">📂 Übersicht</h2>
+    <ul id="summary" class="space-y-2"></ul>
 
-    function loadEntries() {
-      try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-      } catch (e) {
-        console.error('Fehler beim Laden der Daten', e);
-        return [];
-      }
+    <h3 class="text-lg font-semibold mt-6 mb-2 text-center">🧾 Monate im Überblick</h3>
+    <ul id="monthList" class="space-y-2"></ul>
+  </div>
+
+  <!-- ========= CHARTS ========= -->
+  <div>
+    <h2 class="text-xl font-semibold mb-2 text-center">📈 Monatsverlauf</h2>
+    <canvas id="monthlyChart" class="bg-white rounded shadow"></canvas>
+
+    <h2 class="text-xl font-semibold mt-6 mb-2 text-center">📊 Kategorien</h2>
+    <canvas id="categoryChart" class="bg-white rounded shadow"></canvas>
+  </div>
+</div>
+
+<!-- ================= SCRIPT ================= -->
+<script>
+/* ---------- Storage‑Keys ---------- */
+const ENTRY_KEY = 'expense_entries_v1';
+const CAT_KEY   = 'expense_categories_v1';
+
+/* ---------- Helper Storage ---------- */
+const load = key => JSON.parse(localStorage.getItem(key) || 'null');
+const save = (key,val) => localStorage.setItem(key,JSON.stringify(val));
+
+/* ---------- Globale Variablen ---------- */
+let data            = load(ENTRY_KEY) || [];
+let quickCategories = load(CAT_KEY)   || [
+  {cat:'auto',    icon:'🚗'},
+  {cat:'wohnung', icon:'🏠'},
+  {cat:'kaffee',  icon:'☕️'},
+];
+let selectedCat = null;
+let currentRange = 'current';
+let monthlyChart=null, categoryChart=null;
+
+/* ---------- Kontextmenü für Schnellkategorien ---------- */
+let qcMenu = null;
+
+/** Menü anzeigen */
+function showQuickCatMenu(ev, cat){
+  hideQuickCatMenu(); // vorherige schließen
+  qcMenu = document.createElement('div');
+  qcMenu.className = 'context-menu';
+  qcMenu.style.top  = ev.clientY + 'px';
+  qcMenu.style.left = ev.clientX + 'px';
+  qcMenu.textContent = 'Kategorie löschen';
+  qcMenu.onclick = () => {
+    if(confirm(`Kategorie „${cat}” löschen?`)){
+      quickCategories = quickCategories.filter(c => c.cat !== cat);
+      if(selectedCat === cat) selectedCat = null;
+      save(CAT_KEY, quickCategories);
+      updateQuickCategories();
+    }
+    hideQuickCatMenu();
+  };
+  document.body.appendChild(qcMenu);
+  // Klick außerhalb schließt Menü
+  setTimeout(() => document.addEventListener('click', hideQuickCatMenu), 0);
+}
+
+/** Menü verstecken */
+function hideQuickCatMenu(){
+  if(qcMenu){
+    qcMenu.remove();
+    qcMenu = null;
+    document.removeEventListener('click', hideQuickCatMenu);
+  }
+}
+
+/* ---------- Utils ---------- */
+const monthNames=['Januar','Februar','März','April','Mai','Juni',
+                  'Juli','August','September','Oktober','November','Dezember'];
+
+/* ---------- Emoji‑Picker Dialog ---------- */
+function openCategoryDialog(){
+  return new Promise(resolve=>{
+    const emojis=['🍔','🍕','🍜','🍺','💡','🚌','🚆','✈️','🎮','🎁','👕','📚','🏥',
+                  '🎵','🎬','🛒','🐶','🐱','💻','🏃‍♂️','⚽️','🚗','🏠','📱','☕️','💳','🩺'];
+    const backdrop=document.createElement('div');
+    backdrop.className='modal-backdrop';
+
+    const modal=document.createElement('div');
+    modal.className='bg-white rounded-lg shadow-lg p-6 w-80';
+    modal.innerHTML=`
+      <h2 class="text-lg font-semibold mb-4 text-center">Neue Kategorie</h2>
+      <input id="catName" placeholder="Name der Kategorie"
+             class="w-full border p-2 rounded mb-4 focus:outline-none focus:ring" />
+      <div id="emojiGrid" class="grid grid-cols-6 gap-2 mb-4 max-h-40 overflow-y-auto"></div>
+      <button id="saveCat" disabled
+              class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-semibold opacity-50">
+        Speichern
+      </button>`;
+    backdrop.appendChild(modal);
+    document.body.appendChild(backdrop);
+
+    let chosen=null;
+    const grid=modal.querySelector('#emojiGrid');
+    emojis.forEach(e=>{
+      const b=document.createElement('button');
+      b.type='button';b.textContent=e;
+      b.className='text-2xl border rounded hover:bg-blue-100 flex items-center justify-center';
+      b.onclick=()=>{chosen=e;grid.querySelectorAll('button').forEach(x=>x.classList.remove('ring','ring-blue-400'));
+                     b.classList.add('ring','ring-blue-400');checkReady();};
+      grid.appendChild(b);
+    });
+
+    const nameInput=modal.querySelector('#catName');
+    nameInput.addEventListener('input',checkReady);
+
+    function checkReady(){
+      const ok=nameInput.value.trim() && chosen;
+      const btn=modal.querySelector('#saveCat');
+      btn.disabled=!ok;btn.style.opacity=ok?'1':'.5';
     }
 
-    function saveEntries(data) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    modal.querySelector('#saveCat').onclick=()=>{
+      const name=nameInput.value.trim().toLowerCase();
+      backdrop.remove();
+      resolve({cat:name,icon:chosen});
+    };
+    backdrop.onclick=e=>{if(e.target===backdrop){backdrop.remove();resolve(null);}};
+  });
+}
+
+/* ---------- Quick‑Categories ---------- */
+function updateQuickCategories(){
+  const box=document.getElementById('quickCategories');
+  box.innerHTML='';
+
+  quickCategories.forEach(({cat,icon})=>{
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.className=`relative px-3 py-1 rounded text-xl text-white
+                   ${selectedCat===cat?'ring-2 ring-offset-2 ring-blue-500':''}
+                   bg-blue-600 hover:bg-blue-700 flex items-center justify-center`;
+    btn.textContent=icon;
+    btn.title=cat;
+
+    /* Normales Antippen / Klicken → Kategorie wählen */
+    btn.onclick=()=>{
+      selectedCat=cat;
+      document.getElementById('catWarning').classList.add('hidden');
+      updateQuickCategories();
+    };
+
+    /* Rechtsklick (Desktop) */
+    btn.addEventListener('contextmenu',e=>{
+      e.preventDefault();
+      showQuickCatMenu(e,cat);
+    });
+
+    /* Langer Druck (Mobile) */
+    let touchTimer=null;
+    btn.addEventListener('touchstart',e=>{
+      touchTimer=setTimeout(()=>showQuickCatMenu(e.touches[0],cat),600);
+    });
+    ['touchend','touchmove','touchcancel'].forEach(evt=>{
+      btn.addEventListener(evt,()=>clearTimeout(touchTimer));
+    });
+
+    box.appendChild(btn);
+  });
+
+  /* "+"‑Button */
+  const plus=document.createElement('button');
+  plus.type='button';
+  plus.textContent='+';
+  plus.className='bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded font-bold';
+  plus.onclick=async ()=>{
+    const res=await openCategoryDialog();
+    if(res){
+      quickCategories.push(res);
+      save(CAT_KEY,quickCategories);
+      updateQuickCategories();
     }
+  };
+  box.appendChild(plus);
+}
 
-    let data = [];
-    let chart;
-
-    function renderEntries(list) {
-      const container = document.getElementById('entries');
-      container.innerHTML = '';
-
-      list
-        .slice()
-        .reverse()
-        .forEach((item, index) => {
-          const li = document.createElement('li');
-          li.className = 'flex justify-between items-center bg-white p-3 rounded shadow';
-
-          const date = new Date(item.date).toLocaleDateString('de-DE');
-          li.innerHTML = `
-            <div>
-              <span>${date} — ${item.category}</span>
-              <span class="block text-sm text-gray-500">${item.amount.toFixed(2)} €</span>
-            </div>
-            <button class="text-red-500 hover:text-red-700 font-bold" data-index="${index}">✕</button>
-          `;
-
-          container.appendChild(li);
-        });
-
-      container.querySelectorAll('button[data-index]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const realIndex = data.length - 1 - parseInt(btn.getAttribute('data-index'));
-          data.splice(realIndex, 1);
-          saveEntries(data);
-          renderEntries(data);
-          renderSummary(data);
-          renderChart(data);
-          renderMonthList(data);
-        });
-      });
+/* ---------- Daten‑Filter ---------- */
+function getFilteredData(){
+  const filter=document.getElementById('filterInput').value.toLowerCase();
+  const now=new Date();
+  return data.filter(e=>{
+    if(!e.category.toLowerCase().includes(filter)) return false;
+    const d=new Date(e.date);
+    if(currentRange==='current') return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+    if(currentRange==='last'){
+      const lm=new Date(now.getFullYear(),now.getMonth()-1,1);
+      return d.getMonth()===lm.getMonth() && d.getFullYear()===lm.getFullYear();
     }
+    return true;
+  });
+}
 
-    function renderSummary(list) {
-      const container = document.getElementById('summary');
-      container.innerHTML = '';
+/* ---------- Rendering ---------- */
+function renderEntries(list){
+  const ul=document.getElementById('entries');ul.innerHTML='';
+  [...list].reverse().forEach(e=>{
+    const li=document.createElement('li');
+    li.className='flex justify-between items-center bg-white p-3 rounded shadow';
+    li.innerHTML=`
+      <div>
+        <span>${new Date(e.date).toLocaleDateString('de-DE')} — ${e.category}</span>
+        <span class="block text-sm text-gray-500">${e.amount.toFixed(2)} €</span>
+      </div>
+      <button class="text-red-500 hover:text-red-700 font-bold" data-id="${e.date}">✕</button>`;
+    ul.appendChild(li);
+  });
+  ul.querySelectorAll('button[data-id]').forEach(b=>{
+    b.onclick=()=>{data=data.filter(x=>x.date!==b.dataset.id);save(ENTRY_KEY,data);refreshAll();};
+  });
+}
 
-      const now = new Date();
-      const month = now.getMonth();
-      const year = now.getFullYear();
+function renderSummary(list){
+  const ul=document.getElementById('summary');ul.innerHTML='';
+  const sums={};
+  list.forEach(e=>sums[e.category]=(sums[e.category]||0)+e.amount);
+  Object.entries(sums).forEach(([cat,sum])=>{
+    const li=document.createElement('li');
+    li.className='flex justify-between bg-white p-3 rounded shadow';
+    li.innerHTML=`<span>${cat}</span><span>${sum.toFixed(2)} €</span>`;
+    ul.appendChild(li);
+  });
+  const total=list.reduce((s,e)=>s+e.amount,0);
+  const li=document.createElement('li');
+  li.className='flex justify-between font-bold bg-gray-200 p-3 rounded';
+  li.innerHTML=`<span>Gesamt</span><span>${total.toFixed(2)} €</span>`;
+  ul.appendChild(li);
+}
 
-      const monthly = list.filter((i) => {
-        const d = new Date(i.date);
-        return d.getMonth() === month && d.getFullYear() === year;
-      });
+function renderMonthList(list){
+  const ul=document.getElementById('monthList');ul.innerHTML='';
+  const sums={};
+  list.forEach(e=>{
+    const d=new Date(e.date);
+    const key=`${d.getFullYear()}-${d.getMonth()}`;
+    sums[key]=(sums[key]||0)+e.amount;
+  });
+  Object.entries(sums).sort((a,b)=>b[0].localeCompare(a[0])).forEach(([k,sum])=>{
+    const [y,m]=k.split('-').map(Number);
+    const li=document.createElement('li');
+    li.className='flex justify-between bg-white p-3 rounded shadow';
+    li.innerHTML=`<span>${monthNames[m]} ${y}</span><span>${sum.toFixed(2)} €</span>`;
+    ul.appendChild(li);
+  });
+}
 
-      const perCategory = {};
-      monthly.forEach((i) => {
-        const key = i.category.toLowerCase();
-        perCategory[key] = (perCategory[key] || 0) + i.amount;
-      });
+function renderCharts(list){
+  /* Monats‑Chart */
+  const mSums={};
+  list.forEach(e=>{
+    const d=new Date(e.date);
+    const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    mSums[k]=(mSums[k]||0)+e.amount;
+  });
+  const mLabels=Object.keys(mSums).sort();
+  const mValues=mLabels.map(l=>mSums[l]);
+  if(monthlyChart) monthlyChart.destroy();
+  monthlyChart=new Chart(document.getElementById('monthlyChart'),{
+    type:'line',
+    data:{labels:mLabels,datasets:[{label:'Gesamt (€)',data:mValues,fill:true,
+           backgroundColor:'rgba(59,130,246,.2)',borderColor:'rgba(59,130,246,1)',tension:.3}]},
+    options:{responsive:true,scales:{y:{beginAtZero:true}}}
+  });
 
-      for (const cat in perCategory) {
-        const li = document.createElement('li');
-        li.className = 'flex justify-between bg-white p-3 rounded shadow';
-        li.innerHTML = `<span>${cat}</span><span>${perCategory[cat].toFixed(2)} €</span>`;
-        container.appendChild(li);
-      }
+  /* Kategorie‑Chart */
+  const cSums={};
+  list.forEach(e=>cSums[e.category]=(cSums[e.category]||0)+e.amount);
+  const cLabels=Object.keys(cSums);
+  const cValues=cLabels.map(l=>cSums[l]);
+  if(categoryChart) categoryChart.destroy();
+  categoryChart=new Chart(document.getElementById('categoryChart'),{
+    type:'pie',
+    data:{labels:cLabels,datasets:[{data:cValues,
+      backgroundColor:cLabels.map((_,i)=>`hsl(${i*360/cLabels.length},70%,70%)`)}]},
+    options:{responsive:true,plugins:{legend:{position:'bottom'}}}
+  });
+}
 
-      const total = monthly.reduce((sum, i) => sum + i.amount, 0);
-      const liTotal = document.createElement('li');
-      liTotal.className = 'flex justify-between font-bold bg-gray-200 p-3 rounded';
-      liTotal.innerHTML = `<span>Gesamt</span><span>${total.toFixed(2)} €</span>`;
-      container.appendChild(liTotal);
-    }
+/* ---------- Refresh ---------- */
+function refreshAll(){
+  const filtered=getFilteredData();
+  renderEntries(filtered);
+  renderSummary(filtered);
+  renderMonthList(filtered);
+  renderCharts(filtered);
+}
 
-    function renderChart(list) {
-      const monthlyTotals = {};
+/* ---------- Event‑Handler ---------- */
+document.getElementById('expenseForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const amount=parseFloat(document.getElementById('amount').value);
+  if(!selectedCat){
+    document.getElementById('catWarning').classList.remove('hidden');
+    return;
+  }
+  if(amount>0){
+    data.push({amount,category:selectedCat,date:new Date().toISOString()});
+    save(ENTRY_KEY,data);
+    document.getElementById('expenseForm').reset();
+    refreshAll();
+  }
+});
 
-      list.forEach((entry) => {
-        const d = new Date(entry.date);
-        const label = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        monthlyTotals[label] = (monthlyTotals[label] || 0) + entry.amount;
-      });
+document.getElementById('filterInput').addEventListener('input',refreshAll);
 
-      const labels = Object.keys(monthlyTotals).sort();
-      const values = labels.map(label => monthlyTotals[label]);
+document.querySelectorAll('.range-btn').forEach(btn=>{
+  btn.onclick=()=>{
+    currentRange=btn.dataset.range;
+    document.querySelectorAll('.range-btn').forEach(b=>b.classList.remove('bg-blue-800'));
+    btn.classList.add('bg-blue-800');
+    refreshAll();
+  };
+});
 
-      const ctx = document.getElementById('monthlyChart').getContext('2d');
-      if (chart) chart.destroy();
-      chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [{
-            label: 'Gesamtausgaben (€)',
-            data: values,
-            fill: true,
-            backgroundColor: 'rgba(59,130,246,0.2)',
-            borderColor: 'rgba(59,130,246,1)',
-            tension: 0.2
-          }]
-        },
-        options: {
-          responsive: true,
-          scales: {
-            y: {
-              beginAtZero: true
-            }
-          }
-        }
-      });
-    }
-
-    function renderMonthList(list) {
-      const container = document.getElementById('monthList');
-      container.innerHTML = '';
-      const monthMap = {};
-
-      list.forEach(entry => {
-        const d = new Date(entry.date);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        monthMap[key] = (monthMap[key] || 0) + entry.amount;
-      });
-
-      const sorted = Object.entries(monthMap)
-        .sort((a, b) => b[0].localeCompare(a[0]));
-
-      sorted.forEach(([month, total]) => {
-        const li = document.createElement('li');
-        li.className = 'flex justify-between bg-white p-3 rounded shadow';
-        li.innerHTML = `<span>${month}</span><span>${total.toFixed(2)} €</span>`;
-        container.appendChild(li);
-      });
-    }
-
-    function init() {
-      data = loadEntries();
-      renderEntries(data);
-      renderSummary(data);
-      renderChart(data);
-      renderMonthList(data);
-
-      document.getElementById('expenseForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const amount = parseFloat(document.getElementById('amount').value);
-        let category = document.getElementById('category').value.trim();
-        if (!amount || !category) return;
-
-        category = category.toLowerCase();
-
-        const entry = {
-          amount,
-          category,
-          date: new Date().toISOString(),
-        };
-
-        data.push(entry);
-        saveEntries(data);
-        e.target.reset();
-        renderEntries(data);
-        renderSummary(data);
-        renderChart(data);
-        renderMonthList(data);
-      });
-    }
-
-    init();
-  </script>
+/* ---------- Init ---------- */
+updateQuickCategories();
+document.querySelector('[data-range="'+currentRange+'"]').classList.add('bg-blue-800');
+refreshAll();
+</script>
 </body>
 </html>
