@@ -122,16 +122,7 @@ const save = (key,val) => localStorage.setItem(key,JSON.stringify(val));
 /* ---------- Globale Variablen ---------- */
 let data = [];                        // Einträge aus Firestore
 let unsubscribe;          
-function listenToFirestore() {
-  if (unsubscribe) unsubscribe();
-  unsubscribe = firebase.firestore()          // ✔︎ korrekt
-    .collection('expenses')                   // gleiche oder andere Collection
-    .orderBy('date', 'desc')
-    .onSnapshot(snapshot => {
-      data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      refreshAll();
-    });
-}
+
 listenToFirestore();     // für das Live‑Abo
 let quickCategories = load(CAT_KEY)   || [
   {cat:'auto',    icon:'🚗'},
