@@ -121,7 +121,16 @@ const save = (key,val) => localStorage.setItem(key,JSON.stringify(val));
 
 /* ---------- Globale Variablen ---------- */
 let data = [];                        // Einträge aus Firestore
-let unsubscribe = null;               // für das Live‑Abo
+let unsubscribe;          
+function listenToFirestore() {
+  if(unsubscribe) unsubscribe();  // alter Listener weg
+  unsubscribe = firestore.collection('expenses').orderBy('date', 'desc')
+    .onSnapshot(snapshot => {
+      data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      refreshAll();
+    });
+}
+listenToFirestore();     // für das Live‑Abo
 let quickCategories = load(CAT_KEY)   || [
   {cat:'auto',    icon:'🚗'},
   {cat:'wohnung', icon:'🏠'},
