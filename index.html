@@ -168,10 +168,10 @@ function hideQuickCatMenu(){
 }
 
 /*************** Firestore – Live Feed ***************/
-function initFirestoreFeed(){
-  if(unsubscribe) unsubscribe();
-  unsubscribe = db.collection('entries').orderBy('date','desc').onSnapshot(snap=>{
-    data = snap.docs.map(doc=>({id:doc.id, ...doc.data()}));
+function initFirestoreFeed() {
+  if (unsubscribe) unsubscribe();
+  unsubscribe = db.collection('expenses').orderBy('date', 'desc').onSnapshot(snap => {
+    data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     refreshAll();
   });
 }
