@@ -10,20 +10,7 @@
   <!-- index.html -->
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-<script>
-    const firebaseConfig = {
-        apiKey: "AIzaSyBx817oguNx2crLpnJfg70Z8ju7pDA-rt4",
-  authDomain: "ausgabentracker-81c6b.firebaseapp.com",
-  projectId: "ausgabentracker-81c6b",
-  storageBucket: "ausgabentracker-81c6b.firebasestorage.app",
-  messagingSenderId: "285156700598",
-  appId: "1:285156700598:web:a1a56f2cb5189bdc259117",
-  measurementId: "G-S2P74YLDL0"
-    };
-  
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-  </script>
+
 
   <style>
     /* Modal‑Backdrop */
@@ -112,6 +99,18 @@
 
 <!-- ================= SCRIPT ================= -->
 <script>
+       const firebaseConfig = {
+        apiKey: "AIzaSyBx817oguNx2crLpnJfg70Z8ju7pDA-rt4",
+  authDomain: "ausgabentracker-81c6b.firebaseapp.com",
+  projectId: "ausgabentracker-81c6b",
+  storageBucket: "ausgabentracker-81c6b.firebasestorage.app",
+  messagingSenderId: "285156700598",
+  appId: "1:285156700598:web:a1a56f2cb5189bdc259117",
+  measurementId: "G-S2P74YLDL0"
+    };
+  
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
 /* ---------- Storage‑Keys ---------- */
 const ENTRY_KEY = 'expense_entries_v1';
 const CAT_KEY   = 'expense_categories_v1';
@@ -388,18 +387,21 @@ function refreshAll(){
 }
 
 /* ---------- Event‑Handler ---------- */
-document.getElementById('expenseForm').addEventListener('submit',e=>{
+document.getElementById('expenseForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const amount=parseFloat(document.getElementById('amount').value);
-  if(!selectedCat){
+  const amount = parseFloat(document.getElementById('amount').value);
+  if (!selectedCat) {
     document.getElementById('catWarning').classList.remove('hidden');
     return;
   }
-  if(amount>0){
-    data.push({amount,category:selectedCat,date:new Date().toISOString()});
-    save(ENTRY_KEY,data);
+  if (amount > 0) {
+    // Firestore schreibt neuen Eintrag, danach onSnapshot aktualisiert UI automatisch
+    await db.collection('entries').add({
+      amount,
+      category: selectedCat,
+      date: new Date().toISOString()
+    });
     document.getElementById('expenseForm').reset();
-    refreshAll();
   }
 });
 
@@ -430,11 +432,14 @@ document.querySelectorAll('.range-btn').forEach(btn=>{
   btn.onclick=()=>{ currentRange=btn.dataset.range; document.querySelectorAll('.range-btn').forEach(b=>b.classList.remove('bg-blue-800')); btn.classList.add('bg-blue-800'); refreshAll(); };
 });
 
-
+// Firestore Livefeed starten
+initFirestoreFeed();
 
 /* ---------- Init ---------- */
 updateQuickCategories();
 document.querySelector('[data-range="'+currentRange+'"]').classList.add('bg-blue-800');
+
+
 refreshAll();
 </script>
 
