@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Expense Tracker</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50 p-4">
+  <div id="app" class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div>
+      <h1 class="text-2xl font-bold mb-4 text-center">💸 Expense Tracker</h1>
+
+      <!-- Eingabe-Formular -->
+      <form id="expenseForm" class="space-y-3">
+        <input type="number" step="0.01" min="0" placeholder="Betrag (€)" id="amount" required class="w-full p-3 border rounded focus:outline-none focus:ring" />
+        <input type="text" placeholder="Kategorie (z. B. Kaffee, Bahn, …)" id="category" required class="w-full p-3 border rounded focus:outline-none focus:ring" />
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded font-semibold">Eintrag speichern</button>
+      </form>
+
+      <!-- Einträge-Liste -->
+      <h2 class="text-xl font-semibold mt-8 mb-2">Einträge</h2>
+      <ul id="entries" class="space-y-2"></ul>
+
+      <!-- Monatsübersicht -->
+      <h2 class="text-xl font-semibold mt-8 mb-2">Übersicht dieses Monats</h2>
+      <ul id="summary" class="space-y-2"></ul>
+    </div>
+
+    <!-- Diagramm -->
+    <div>
+      <h2 class="text-xl font-semibold mb-2 text-center">Monatlicher Verlauf</h2>
+      <canvas id="monthlyChart" class="bg-white rounded shadow"></canvas>
+
+      <!-- Auflistung der letzten Monate -->
+      <h3 class="text-lg font-medium mt-6 mb-2 text-center">Monate im Überblick</h3>
+      <ul id="monthList" class="space-y-2"></ul>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'expense_tracker_v1';
+
+    function loadEntries() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+      } catch (e) {
+        console.error('Fehler beim Laden der Daten', e);
+        return [];
+      }
+    }
+
+    function saveEntries(data) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    let data = [];
+    let chart;
+
+    function renderEntries(list) {
+      const container = document.getElementById('entries');
+      container.innerHTML = '';
+
+      list
+        .slice()
+        .reverse()
+        .forEach((item, index) => {
+          const li = document.createElement('li');
+          li.className = 'flex justify-between items-center bg-white p-3 rounded shadow';
+
+          const date = new Date(item.date).toLocaleDateString('de-DE');
+          li.innerHTML = `
+            <div>
+              <span>${date} — ${item.category}</span>
+              <span class="block text-sm text-gray-500">${item.amount.toFixed(2)} €</span>
+            </div>
+            <button class="text-red-500 hover:text-red-700 font-bold" data-index="${index}">✕</button>
+          `;
+
+          container.appendChild(li);
+        });
+
+      container.querySelectorAll('button[data-index]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const realIndex = data.length - 1 - parseInt(btn.getAttribute('data-index'));
+          data.splice(realIndex, 1);
+          saveEntries(data);
+          renderEntries(data);
+          renderSummary(data);
+          renderChart(data);
+          renderMonthList(data);
+        });
+      });
+    }
+
+    function renderSummary(list) {
+      const container = document.getElementById('summary');
+      container.innerHTML = '';
+
+      const now = new Date();
+      const month = now.getMonth();
+      const year = now.getFullYear();
+
+      const monthly = list.filter((i) => {
+        const d = new Date(i.date);
+        return d.getMonth() === month && d.getFullYear() === year;
+      });
+
+      const perCategory = {};
+      monthly.forEach((i) => {
+        const key = i.category.toLowerCase();
+        perCategory[key] = (perCategory[key] || 0) + i.amount;
+      });
+
+      for (const cat in perCategory) {
+        const li = document.createElement('li');
+        li.className = 'flex justify-between bg-white p-3 rounded shadow';
+        li.innerHTML = `<span>${cat}</span><span>${perCategory[cat].toFixed(2)} €</span>`;
+        container.appendChild(li);
+      }
+
+      const total = monthly.reduce((sum, i) => sum + i.amount, 0);
+      const liTotal = document.createElement('li');
+      liTotal.className = 'flex justify-between font-bold bg-gray-200 p-3 rounded';
+      liTotal.innerHTML = `<span>Gesamt</span><span>${total.toFixed(2)} €</span>`;
+      container.appendChild(liTotal);
+    }
+
+    function renderChart(list) {
+      const monthlyTotals = {};
+
+      list.forEach((entry) => {
+        const d = new Date(entry.date);
+        const label = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        monthlyTotals[label] = (monthlyTotals[label] || 0) + entry.amount;
+      });
+
+      const labels = Object.keys(monthlyTotals).sort();
+      const values = labels.map(label => monthlyTotals[label]);
+
+      const ctx = document.getElementById('monthlyChart').getContext('2d');
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Gesamtausgaben (€)',
+            data: values,
+            fill: true,
+            backgroundColor: 'rgba(59,130,246,0.2)',
+            borderColor: 'rgba(59,130,246,1)',
+            tension: 0.2
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    function renderMonthList(list) {
+      const container = document.getElementById('monthList');
+      container.innerHTML = '';
+      const monthMap = {};
+
+      list.forEach(entry => {
+        const d = new Date(entry.date);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        monthMap[key] = (monthMap[key] || 0) + entry.amount;
+      });
+
+      const sorted = Object.entries(monthMap)
+        .sort((a, b) => b[0].localeCompare(a[0]));
+
+      sorted.forEach(([month, total]) => {
+        const li = document.createElement('li');
+        li.className = 'flex justify-between bg-white p-3 rounded shadow';
+        li.innerHTML = `<span>${month}</span><span>${total.toFixed(2)} €</span>`;
+        container.appendChild(li);
+      });
+    }
+
+    function init() {
+      data = loadEntries();
+      renderEntries(data);
+      renderSummary(data);
+      renderChart(data);
+      renderMonthList(data);
+
+      document.getElementById('expenseForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const amount = parseFloat(document.getElementById('amount').value);
+        let category = document.getElementById('category').value.trim();
+        if (!amount || !category) return;
+
+        category = category.toLowerCase();
+
+        const entry = {
+          amount,
+          category,
+          date: new Date().toISOString(),
+        };
+
+        data.push(entry);
+        saveEntries(data);
+        e.target.reset();
+        renderEntries(data);
+        renderSummary(data);
+        renderChart(data);
+        renderMonthList(data);
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
