@@ -123,8 +123,10 @@ const save = (key,val) => localStorage.setItem(key,JSON.stringify(val));
 let data = [];                        // Einträge aus Firestore
 let unsubscribe;          
 function listenToFirestore() {
-  if(unsubscribe) unsubscribe();  // alter Listener weg
-  unsubscribe = firestore.collection('expenses').orderBy('date', 'desc')
+  if (unsubscribe) unsubscribe();
+  unsubscribe = firebase.firestore()          // ✔︎ korrekt
+    .collection('expenses')                   // gleiche oder andere Collection
+    .orderBy('date', 'desc')
     .onSnapshot(snapshot => {
       data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       refreshAll();
