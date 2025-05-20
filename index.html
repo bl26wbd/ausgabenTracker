@@ -386,7 +386,8 @@ function refreshAll(){
   renderCharts(filtered);
 }
 
-/* ---------- Event‑Handler ---------- */
+
+/*************** Formular‑Submit → Firestore ***************/
 document.getElementById('expenseForm').addEventListener('submit', async e => {
   e.preventDefault();
   const amount = parseFloat(document.getElementById('amount').value);
@@ -395,35 +396,12 @@ document.getElementById('expenseForm').addEventListener('submit', async e => {
     return;
   }
   if (amount > 0) {
-    // Firestore schreibt neuen Eintrag, danach onSnapshot aktualisiert UI automatisch
     await db.collection('entries').add({
       amount,
       category: selectedCat,
       date: new Date().toISOString()
     });
     document.getElementById('expenseForm').reset();
-  }
-});
-
-document.getElementById('filterInput').addEventListener('input',refreshAll);
-
-document.querySelectorAll('.range-btn').forEach(btn=>{
-  btn.onclick=()=>{
-    currentRange=btn.dataset.range;
-    document.querySelectorAll('.range-btn').forEach(b=>b.classList.remove('bg-blue-800'));
-    btn.classList.add('bg-blue-800');
-    refreshAll();
-  };
-});
-/*************** Formular‑Submit → Firestore ***************/
-document.getElementById('expenseForm').addEventListener('submit',async e=>{
-  e.preventDefault();
-  const amount=parseFloat(document.getElementById('amount').value);
-  if(!selectedCat){document.getElementById('catWarning').classList.remove('hidden');return;}
-  if(amount>0){
-    await db.collection('entries').add({ amount, category:selectedCat, date:new Date().toISOString() });
-    document.getElementById('expenseForm').reset();
-    // keine weitere Aktion nötig – onSnapshot aktualisiert UI
   }
 });
 
