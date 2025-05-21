@@ -1,429 +1,560 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Expense Tracker</title>
 
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <!-- TailwindCSS (v2) -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- index.html -->
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-
+  <!-- Firebase (v9 compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 
   <style>
     /* Modal‑Backdrop */
-    .modal-backdrop{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-                    background:rgba(0,0,0,.45);z-index:50;}
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 50;
+    }
 
     /* (❌‑Stile bleiben, falls du sie später wieder brauchst) */
-    .cat-del{position:absolute;top:-6px;right:-6px;width:18px;height:18px;font-size:12px;line-height:18px;
-             background:#dc2626;color:#fff;border-radius:9999px;cursor:pointer;}
+    .cat-del {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      width: 18px;
+      height: 18px;
+      font-size: 12px;
+      line-height: 18px;
+      background: #dc2626;
+      color: #fff;
+      border-radius: 9999px;
+      cursor: pointer;
+    }
 
     /* Kontextmenü */
-    .context-menu{
-      position:absolute;background:#fff;border:1px solid #ccc;padding:10px;z-index:1000;cursor:pointer;
-      box-shadow:0 2px 6px rgba(0,0,0,.2);user-select:none;
+    .context-menu {
+      position: absolute;
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: 10px;
+      z-index: 1000;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      user-select: none;
     }
   </style>
 </head>
 <body class="bg-gray-50 p-4">
-<div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+  <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+    <!-- ========= EINGABE & FILTER ========= -->
+    <div class="md:col-span-1">
+      <h1 class="text-2xl font-bold mb-4 text-center">💸 Expense Tracker</h1>
 
-  <!-- ========= EINGABE & FILTER ========= -->
-  <div class="md:col-span-1">
-    <h1 class="text-2xl font-bold mb-4 text-center">💸 Expense Tracker</h1>
+      <!-- Formular -->
+      <form id="expenseForm" class="space-y-3">
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder="Betrag (€)"
+          id="amount"
+          required
+          class="w-full p-3 border rounded focus:outline-none focus:ring"
+        />
 
-    <!-- Formular -->
-    <form id="expenseForm" class="space-y-3">
-      <input type="number" step="0.01" min="0" placeholder="Betrag (€)" id="amount"
-             required class="w-full p-3 border rounded focus:outline-none focus:ring" />
+        <!-- Schnellkategorien (werden dynamisch gefüllt) -->
+        <div id="quickCategories" class="flex flex-wrap gap-2"></div>
+        <p id="catWarning" class="text-red-600 text-sm hidden">
+          Bitte eine Kategorie auswählen !
+        </p>
 
-      <!-- Schnellkategorien -->
-      <div id="quickCategories" class="flex flex-wrap gap-2"></div>
-      <p id="catWarning" class="text-red-600 text-sm hidden">Bitte eine Kategorie auswählen !</p>
+        <button
+          type="submit"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded font-semibold"
+        >
+          Eintrag speichern
+        </button>
+      </form>
 
-      <button type="submit"
-              class="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded font-semibold">
-        Eintrag speichern
-      </button>
-    </form>
+      <!-- Kategorie‑Filter -->
+      <div class="mt-6">
+        <input
+          id="filterInput"
+          placeholder="🔍 Nach Kategorie filtern"
+          class="w-full p-2 border rounded"
+        />
+      </div>
 
-    <!-- Kategorie‑Filter -->
-    <div class="mt-6">
-      <input id="filterInput" placeholder="🔍 Nach Kategorie filtern"
-             class="w-full p-2 border rounded" />
+      <!-- Zeitraum‑Buttons -->
+      <div class="mt-4 flex justify-center space-x-4">
+        <button
+          data-range="current"
+          class="range-btn bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-semibold shadow"
+        >
+          📆
+        </button>
+        <button
+          data-range="last"
+          class="range-btn bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-semibold shadow"
+        >
+          ⏪
+        </button>
+        <button
+          data-range="all"
+          class="range-btn bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-semibold shadow"
+        >
+          📊
+        </button>
+      </div>
+
+      <!-- Einträge -->
+      <h2 class="text-xl font-semibold mt-8 mb-2">Einträge</h2>
+      <ul id="entries" class="space-y-2"></ul>
     </div>
 
-    <!-- Zeitraum‑Buttons -->
-    <div class="mt-4 flex justify-center space-x-4">
-      <button data-range="current"
-              class="range-btn bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-semibold shadow">
-        📆
-      </button>
-      <button data-range="last"
-              class="range-btn bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-semibold shadow">
-        ⏪
-      </button>
-      <button data-range="all"
-              class="range-btn bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-semibold shadow">
-        📊
-      </button>
+    <!-- ========= ÜBERSICHT ========= -->
+    <div class="md:col-span-1">
+      <h2 class="text-xl font-semibold mb-4 text-center">📂 Übersicht</h2>
+      <ul id="summary" class="space-y-2"></ul>
+
+      <h3 class="text-lg font-semibold mt-6 mb-2 text-center">🧾 Monate im Überblick</h3>
+      <ul id="monthList" class="space-y-2"></ul>
     </div>
 
-    <!-- Einträge -->
-    <h2 class="text-xl font-semibold mt-8 mb-2">Einträge</h2>
-    <ul id="entries" class="space-y-2"></ul>
+    <!-- ========= CHARTS ========= -->
+    <div>
+      <h2 class="text-xl font-semibold mb-2 text-center">📈 Monatsverlauf</h2>
+      <canvas id="monthlyChart" class="bg-white rounded shadow"></canvas>
+
+      <h2 class="text-xl font-semibold mt-6 mb-2 text-center">📊 Kategorien</h2>
+      <canvas id="categoryChart" class="bg-white rounded shadow"></canvas>
+    </div>
   </div>
 
-  <!-- ========= ÜBERSICHT ========= -->
-  <div class="md:col-span-1">
-    <h2 class="text-xl font-semibold mb-4 text-center">📂 Übersicht</h2>
-    <ul id="summary" class="space-y-2"></ul>
-
-    <h3 class="text-lg font-semibold mt-6 mb-2 text-center">🧾 Monate im Überblick</h3>
-    <ul id="monthList" class="space-y-2"></ul>
-  </div>
-
-  <!-- ========= CHARTS ========= -->
-  <div>
-    <h2 class="text-xl font-semibold mb-2 text-center">📈 Monatsverlauf</h2>
-    <canvas id="monthlyChart" class="bg-white rounded shadow"></canvas>
-
-    <h2 class="text-xl font-semibold mt-6 mb-2 text-center">📊 Kategorien</h2>
-    <canvas id="categoryChart" class="bg-white rounded shadow"></canvas>
-  </div>
-</div>
-
-
-<!-- ================= SCRIPT ================= -->
-<script>
-       const firebaseConfig = {
-        apiKey: "AIzaSyBx817oguNx2crLpnJfg70Z8ju7pDA-rt4",
-  authDomain: "ausgabentracker-81c6b.firebaseapp.com",
-  projectId: "ausgabentracker-81c6b",
-  storageBucket: "ausgabentracker-81c6b.firebasestorage.app",
-  messagingSenderId: "285156700598",
-  appId: "1:285156700598:web:a1a56f2cb5189bdc259117",
-  measurementId: "G-S2P74YLDL0"
+  <!-- ================= SCRIPT ================= -->
+  <script>
+    /* ---------- Firebase Config ---------- */
+    const firebaseConfig = {
+      apiKey: "AIzaSyBx817oguNx2crLpnJfg70Z8ju7pDA-rt4",
+      authDomain: "ausgabentracker-81c6b.firebaseapp.com",
+      projectId: "ausgabentracker-81c6b",
+      storageBucket: "ausgabentracker-81c6b.appspot.com",
+      messagingSenderId: "285156700598",
+      appId: "1:285156700598:web:a1a56f2cb5189bdc259117",
+      measurementId: "G-S2P74YLDL0",
     };
-  
+
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-/* ---------- Storage‑Keys ---------- */
-const ENTRY_KEY = 'expense_entries_v1';
-const CAT_KEY   = 'expense_categories_v1';
 
-/* ---------- Helper Storage ---------- */
-const load = key => JSON.parse(localStorage.getItem(key) || 'null');
-const save = (key,val) => localStorage.setItem(key,JSON.stringify(val));
+    /* ---------- Collection‑Konstanten ---------- */
+    const EXPENSE_COLLECTION = "expenses";
+    const QUICKCAT_COLLECTION = "quickCategories";
 
-/* ---------- Globale Variablen ---------- */
-let data = [];                        // Einträge aus Firestore
-let unsubscribe;          
+    /* ---------- Globale Variablen ---------- */
+    let data = []; // Einträge aus Firestore
+    let quickCategories = []; // Schnellkategorien aus Firestore
+    let unsubscribeExpenses;
+    let unsubscribeQuickCats;
 
+    let selectedCat = null;
+    let currentRange = "current";
+    let monthlyChart = null,
+      categoryChart = null;
 
-let quickCategories = load(CAT_KEY)   || [
-  {cat:'auto',    icon:'🚗'},
-  {cat:'wohnung', icon:'🏠'},
-  {cat:'kaffee',  icon:'☕️'},
-];
-let selectedCat = null;
-let currentRange = 'current';
-let monthlyChart=null, categoryChart=null;
-const COLLECTION_NAME = 'entries';
+    /* ---------- Kontextmenü für Schnellkategorien ---------- */
+    let qcMenu = null;
 
-
-/* ---------- Kontextmenü für Schnellkategorien ---------- */
-let qcMenu = null;
-
-/** Menü anzeigen */
-function showQuickCatMenu(ev, cat){
-  hideQuickCatMenu(); // vorherige schließen
-  qcMenu = document.createElement('div');
-  qcMenu.className = 'context-menu';
-  qcMenu.style.top  = ev.clientY + 'px';
-  qcMenu.style.left = ev.clientX + 'px';
-  qcMenu.textContent = 'Kategorie löschen';
-  qcMenu.onclick = () => {
-    if(confirm(`Kategorie „${cat}” löschen?`)){
-      quickCategories = quickCategories.filter(c => c.cat !== cat);
-      if(selectedCat === cat) selectedCat = null;
-      save(CAT_KEY, quickCategories);
-      updateQuickCategories();
-    }
-    hideQuickCatMenu();
-  };
-  document.body.appendChild(qcMenu);
-  // Klick außerhalb schließt Menü
-  setTimeout(() => document.addEventListener('click', hideQuickCatMenu), 0);
-}
-
-/** Menü verstecken */
-function hideQuickCatMenu(){
-  if(qcMenu){
-    qcMenu.remove();
-    qcMenu = null;
-    document.removeEventListener('click', hideQuickCatMenu);
-  }
-}
-
-/*************** Firestore – Live Feed ***************/
-function initFirestoreFeed() {
-  if (unsubscribe) unsubscribe();
-  unsubscribe = db.collection('expenses').orderBy('date', 'desc').onSnapshot(snap => {
-    data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    refreshAll();
-  });
-}
-
-/* ---------- Utils ---------- */
-const monthNames=['Januar','Februar','März','April','Mai','Juni',
-                  'Juli','August','September','Oktober','November','Dezember'];
-
-/* ---------- Emoji‑Picker Dialog ---------- */
-function openCategoryDialog(){
-  return new Promise(resolve=>{
-    const emojis=['🍔','🍕','🍜','🍺','💡','🚌','🚆','✈️','🎮','🎁','👕','📚','🏥',
-                  '🎵','🎬','🛒','🐶','🐱','💻','🏃‍♂️','⚽️','🚗','🏠','📱','☕️','💳','🩺'];
-    const backdrop=document.createElement('div');
-    backdrop.className='modal-backdrop';
-
-    const modal=document.createElement('div');
-    modal.className='bg-white rounded-lg shadow-lg p-6 w-80';
-    modal.innerHTML=`
-      <h2 class="text-lg font-semibold mb-4 text-center">Neue Kategorie</h2>
-      <input id="catName" placeholder="Name der Kategorie"
-             class="w-full border p-2 rounded mb-4 focus:outline-none focus:ring" />
-      <div id="emojiGrid" class="grid grid-cols-6 gap-2 mb-4 max-h-40 overflow-y-auto"></div>
-      <button id="saveCat" disabled
-              class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-semibold opacity-50">
-        Speichern
-      </button>`;
-    backdrop.appendChild(modal);
-    document.body.appendChild(backdrop);
-
-    let chosen=null;
-    const grid=modal.querySelector('#emojiGrid');
-    emojis.forEach(e=>{
-      const b=document.createElement('button');
-      b.type='button';b.textContent=e;
-      b.className='text-2xl border rounded hover:bg-blue-100 flex items-center justify-center';
-      b.onclick=()=>{chosen=e;grid.querySelectorAll('button').forEach(x=>x.classList.remove('ring','ring-blue-400'));
-                     b.classList.add('ring','ring-blue-400');checkReady();};
-      grid.appendChild(b);
-    });
-
-    const nameInput=modal.querySelector('#catName');
-    nameInput.addEventListener('input',checkReady);
-
-    function checkReady(){
-      const ok=nameInput.value.trim() && chosen;
-      const btn=modal.querySelector('#saveCat');
-      btn.disabled=!ok;btn.style.opacity=ok?'1':'.5';
+    function showQuickCatMenu(ev, catObj) {
+      hideQuickCatMenu();
+      qcMenu = document.createElement("div");
+      qcMenu.className = "context-menu";
+      qcMenu.style.top = ev.clientY + "px";
+      qcMenu.style.left = ev.clientX + "px";
+      qcMenu.textContent = "Kategorie löschen";
+      qcMenu.onclick = () => {
+        if (confirm(`Kategorie „${catObj.cat}” löschen?`)) {
+          db.collection(QUICKCAT_COLLECTION).doc(catObj.id).delete();
+          if (selectedCat === catObj.cat) selectedCat = null;
+        }
+        hideQuickCatMenu();
+      };
+      document.body.appendChild(qcMenu);
+      // Klick außerhalb schließt Menü
+      setTimeout(() => document.addEventListener("click", hideQuickCatMenu), 0);
     }
 
-    modal.querySelector('#saveCat').onclick=()=>{
-      const name=nameInput.value.trim().toLowerCase();
-      backdrop.remove();
-      resolve({cat:name,icon:chosen});
-    };
-    backdrop.onclick=e=>{if(e.target===backdrop){backdrop.remove();resolve(null);}};
-  });
-}
+    function hideQuickCatMenu() {
+      if (qcMenu) {
+        qcMenu.remove();
+        qcMenu = null;
+        document.removeEventListener("click", hideQuickCatMenu);
+      }
+    }
 
-/* ---------- Quick‑Categories ---------- */
-function updateQuickCategories(){
-  const box=document.getElementById('quickCategories');
-  box.innerHTML='';
+    /* ---------- Firestore – Live‑Feeds ---------- */
+    function subscribeExpensesFeed() {
+      if (unsubscribeExpenses) unsubscribeExpenses();
+      unsubscribeExpenses = db
+        .collection(EXPENSE_COLLECTION)
+        .orderBy("date", "desc")
+        .onSnapshot((snap) => {
+          data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+          refreshAll();
+        });
+    }
 
-  quickCategories.forEach(({cat,icon})=>{
-    const btn=document.createElement('button');
-    btn.type='button';
-    btn.className=`relative px-3 py-1 rounded text-xl text-white
-                   ${selectedCat===cat?'ring-2 ring-offset-2 ring-blue-500':''}
-                   bg-blue-600 hover:bg-blue-700 flex items-center justify-center`;
-    btn.textContent=icon;
-    btn.title=cat;
+    function subscribeQuickCategoriesFeed() {
+      if (unsubscribeQuickCats) unsubscribeQuickCats();
+      unsubscribeQuickCats = db
+        .collection(QUICKCAT_COLLECTION)
+        .orderBy("cat")
+        .onSnapshot((snap) => {
+          quickCategories = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+          updateQuickCategories();
+        });
+    }
 
-    /* Normales Antippen / Klicken → Kategorie wählen */
-    btn.onclick=()=>{
-      selectedCat=cat;
-      document.getElementById('catWarning').classList.add('hidden');
-      updateQuickCategories();
-    };
+    /* ---------- Emoji‑Picker Dialog ---------- */
+    function openCategoryDialog() {
+      return new Promise((resolve) => {
+        const emojis = [
+          "🍔",
+          "🍕",
+          "🍜",
+          "🍺",
+          "💡",
+          "🚌",
+          "🚆",
+          "✈️",
+          "🎮",
+          "🎁",
+          "👕",
+          "📚",
+          "🏥",
+          "🎵",
+          "🎬",
+          "🛒",
+          "🐶",
+          "🐱",
+          "💻",
+          "🏃‍♂️",
+          "⚽️",
+          "🚗",
+          "🏠",
+          "📱",
+          "☕️",
+          "💳",
+          "🩺",
+        ];
+        const backdrop = document.createElement("div");
+        backdrop.className = "modal-backdrop";
 
-    /* Rechtsklick (Desktop) */
-    btn.addEventListener('contextmenu',e=>{
+        const modal = document.createElement("div");
+        modal.className = "bg-white rounded-lg shadow-lg p-6 w-80";
+        modal.innerHTML = `
+          <h2 class="text-lg font-semibold mb-4 text-center">Neue Kategorie</h2>
+          <input id="catName" placeholder="Name der Kategorie" class="w-full border p-2 rounded mb-4 focus:outline-none focus:ring" />
+          <div id="emojiGrid" class="grid grid-cols-6 gap-2 mb-4 max-h-40 overflow-y-auto"></div>
+          <button id="saveCat" disabled class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-semibold opacity-50">Speichern</button>
+        `;
+        backdrop.appendChild(modal);
+        document.body.appendChild(backdrop);
+
+        let chosen = null;
+        const grid = modal.querySelector("#emojiGrid");
+        emojis.forEach((e) => {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.textContent = e;
+          b.className = "text-2xl border rounded hover:bg-blue-100 flex items-center justify-center";
+          b.onclick = () => {
+            chosen = e;
+            grid
+              .querySelectorAll("button")
+              .forEach((x) => x.classList.remove("ring", "ring-blue-400"));
+            b.classList.add("ring", "ring-blue-400");
+            checkReady();
+          };
+          grid.appendChild(b);
+        });
+
+        const nameInput = modal.querySelector("#catName");
+        nameInput.addEventListener("input", checkReady);
+
+        function checkReady() {
+          const ok = nameInput.value.trim() && chosen;
+          const btn = modal.querySelector("#saveCat");
+          btn.disabled = !ok;
+          btn.style.opacity = ok ? "1" : ".5";
+        }
+
+        modal.querySelector("#saveCat").onclick = async () => {
+          const name = nameInput.value.trim().toLowerCase();
+          backdrop.remove();
+          resolve({ cat: name, icon: chosen });
+        };
+        backdrop.onclick = (e) => {
+          if (e.target === backdrop) {
+            backdrop.remove();
+            resolve(null);
+          }
+        };
+      });
+    }
+
+    /* ---------- Quick‑Categories Rendering ---------- */
+    function updateQuickCategories() {
+      const box = document.getElementById("quickCategories");
+      box.innerHTML = "";
+
+      quickCategories.forEach((qc) => {
+        const { cat, icon } = qc;
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `relative px-3 py-1 rounded text-xl text-white ${
+          selectedCat === cat ? "ring-2 ring-offset-2 ring-blue-500" : ""
+        } bg-blue-600 hover:bg-blue-700 flex items-center justify-center`;
+        btn.textContent = icon;
+        btn.title = cat;
+
+        /* Kategorie wählen */
+        btn.onclick = () => {
+          selectedCat = cat;
+          document.getElementById("catWarning").classList.add("hidden");
+          updateQuickCategories();
+        };
+
+        /* Rechtsklick (Desktop) */
+        btn.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          showQuickCatMenu(e, qc);
+        });
+
+        /* Langer Druck (Mobile) */
+        let touchTimer = null;
+        btn.addEventListener("touchstart", (e) => {
+          touchTimer = setTimeout(() => showQuickCatMenu(e.touches[0], qc), 600);
+        });
+        ["touchend", "touchmove", "touchcancel"].forEach((evt) => {
+          btn.addEventListener(evt, () => clearTimeout(touchTimer));
+        });
+
+        box.appendChild(btn);
+      });
+
+      /* " + "‑Button */
+      const plus = document.createElement("button");
+      plus.type = "button";
+      plus.textContent = "+";
+      plus.className = "bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded font-bold";
+      plus.onclick = async () => {
+        const res = await openCategoryDialog();
+        if (res) {
+          // Prüfen, ob die Kategorie schon existiert
+          const exists = quickCategories.some((c) => c.cat === res.cat);
+          if (!exists) {
+            await db.collection(QUICKCAT_COLLECTION).add(res);
+          } else {
+            alert("Kategorie existiert bereits.");
+          }
+        }
+      };
+      box.appendChild(plus);
+    }
+
+    /* ---------- Daten‑Filter ---------- */
+    function getFilteredData() {
+      const filter = document.getElementById("filterInput").value.toLowerCase();
+      const now = new Date();
+      return data.filter((e) => {
+        if (!e.category.toLowerCase().includes(filter)) return false;
+        const d = new Date(e.date);
+        if (currentRange === "current")
+          return (
+            d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+          );
+        if (currentRange === "last") {
+          const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
+        }
+        return true;
+      });
+    }
+
+    /*************** Rendering ***************/
+    const monthNames = [
+      "Januar",
+      "Februar",
+      "März",
+      "April",
+      "Mai",
+      "Juni",
+      "Juli",
+      "August",
+      "September",
+      "Oktober",
+      "November",
+      "Dezember",
+    ];
+
+    function renderEntries(list) {
+      const ul = document.getElementById("entries");
+      ul.innerHTML = "";
+      [...list].reverse().forEach((e) => {
+        const li = document.createElement("li");
+        li.className = "flex justify-between items-center bg-white p-3 rounded shadow";
+        li.innerHTML = `<div><span>${new Date(e.date).toLocaleDateString("de-DE")} — ${e.category}</span><span class='block text-sm text-gray-500'>${e.amount.toFixed(2)} €</span></div><button class='text-red-500 hover:text-red-700 font-bold' data-id='${e.id}'>✕</button>`;
+        ul.appendChild(li);
+      });
+      ul.querySelectorAll("button[data-id]").forEach((b) => {
+        b.onclick = () => db.collection(EXPENSE_COLLECTION).doc(b.dataset.id).delete();
+      });
+    }
+
+    function renderSummary(list) {
+      const ul = document.getElementById("summary");
+      ul.innerHTML = "";
+      const sums = {};
+      list.forEach((e) => (sums[e.category] = (sums[e.category] || 0) + e.amount));
+      Object.entries(sums).forEach(([cat, sum]) => {
+        const li = document.createElement("li");
+        li.className = "flex justify-between bg-white p-3 rounded shadow";
+        li.innerHTML = `<span>${cat}</span><span>${sum.toFixed(2)} €</span>`;
+        ul.appendChild(li);
+      });
+      const total = list.reduce((s, e) => s + e.amount, 0);
+      const li = document.createElement("li");
+      li.className = "flex justify-between font-bold bg-gray-200 p-3 rounded";
+      li.innerHTML = `<span>Gesamt</span><span>${total.toFixed(2)} €</span>`;
+      ul.appendChild(li);
+    }
+
+    function renderMonthList(list) {
+      const ul = document.getElementById("monthList");
+      ul.innerHTML = "";
+      const sums = {};
+      list.forEach((e) => {
+        const d = new Date(e.date);
+        const key = `${d.getFullYear()}-${d.getMonth()}`;
+        sums[key] = (sums[key] || 0) + e.amount;
+      });
+      Object.entries(sums)
+        .sort((a, b) => b[0].localeCompare(a[0]))
+        .forEach(([k, sum]) => {
+          const [y, m] = k.split("-").map(Number);
+          const li = document.createElement("li");
+          li.className = "flex justify-between bg-white p-3 rounded shadow";
+          li.innerHTML = `<span>${monthNames[m]} ${y}</span><span>${sum.toFixed(2)} €</span>`;
+          ul.appendChild(li);
+        });
+    }
+
+    function renderCharts(list) {
+      /* Monats‑Chart */
+      const mSums = {};
+      list.forEach((e) => {
+        const d = new Date(e.date);
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        mSums[k] = (mSums[k] || 0) + e.amount;
+      });
+      const mLabels = Object.keys(mSums).sort();
+      const mValues = mLabels.map((l) => mSums[l]);
+      if (monthlyChart) monthlyChart.destroy();
+      monthlyChart = new Chart(document.getElementById("monthlyChart"), {
+        type: "line",
+        data: {
+          labels: mLabels,
+          datasets: [
+            {
+              label: "Gesamt (€)",
+              data: mValues,
+              fill: true,
+              backgroundColor: "rgba(59,130,246,.2)",
+              borderColor: "rgba(59,130,246,1)",
+              tension: 0.3,
+            },
+          ],
+        },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } },
+      });
+
+      /* Kategorie‑Chart */
+      const cSums = {};
+      list.forEach((e) => (cSums[e.category] = (cSums[e.category] || 0) + e.amount));
+      const cLabels = Object.keys(cSums);
+      const cValues = cLabels.map((l) => cSums[l]);
+      if (categoryChart) categoryChart.destroy();
+      categoryChart = new Chart(document.getElementById("categoryChart"), {
+        type: "pie",
+        data: {
+          labels: cLabels,
+          datasets: [
+            {
+              data: cValues,
+              backgroundColor: cLabels.map(
+                (_, i) => `hsl(${(i * 360) / cLabels.length},70%,70%)`
+              ),
+            },
+          ],
+        },
+        options: { responsive: true, plugins: { legend: { position: "bottom" } } },
+      });
+    }
+
+    /* ---------- Refresh alles ---------- */
+    function refreshAll() {
+      const filtered = getFilteredData();
+      renderEntries(filtered);
+      renderSummary(filtered);
+      renderMonthList(filtered);
+      renderCharts(filtered);
+    }
+
+    /*************** Formular‑Submit → Firestore ***************/
+    document.getElementById("expenseForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      showQuickCatMenu(e,cat);
+      const amount = parseFloat(document.getElementById("amount").value);
+      if (!selectedCat) {
+        document.getElementById("catWarning").classList.remove("hidden");
+        return;
+      }
+      if (amount > 0) {
+        await db.collection(EXPENSE_COLLECTION).add({
+          amount,
+          category: selectedCat,
+          date: new Date().toISOString(),
+        });
+        document.getElementById("expenseForm").reset();
+      }
     });
 
-    /* Langer Druck (Mobile) */
-    let touchTimer=null;
-    btn.addEventListener('touchstart',e=>{
-      touchTimer=setTimeout(()=>showQuickCatMenu(e.touches[0],cat),600);
+    document.getElementById("filterInput").addEventListener("input", refreshAll);
+    document.querySelectorAll(".range-btn").forEach((btn) => {
+      btn.onclick = () => {
+        currentRange = btn.dataset.range;
+        document.querySelectorAll(".range-btn").forEach((b) =>
+          b.classList.remove("bg-blue-800")
+        );
+        btn.classList.add("bg-blue-800");
+        refreshAll();
+      };
     });
-    ['touchend','touchmove','touchcancel'].forEach(evt=>{
-      btn.addEventListener(evt,()=>clearTimeout(touchTimer));
-    });
 
-    box.appendChild(btn);
-  });
-
-  /* "+"‑Button */
-  const plus=document.createElement('button');
-  plus.type='button';
-  plus.textContent='+';
-  plus.className='bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded font-bold';
-  plus.onclick=async ()=>{
-    const res=await openCategoryDialog();
-    if(res){
-      quickCategories.push(res);
-      save(CAT_KEY,quickCategories);
-      updateQuickCategories();
-    }
-  };
-  box.appendChild(plus);
-}
-
-/*************** Daten‑Filter ***************/
-function getFilteredData(){
-  const filter=document.getElementById('filterInput').value.toLowerCase();
-  const now=new Date();
-  return data.filter(e=>{
-    if(!e.category.toLowerCase().includes(filter)) return false;
-    const d=new Date(e.date);
-    if(currentRange==='current') return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
-    if(currentRange==='last'){
-      const lm=new Date(now.getFullYear(),now.getMonth()-1,1);
-      return d.getMonth()===lm.getMonth()&&d.getFullYear()===lm.getFullYear();
-    }
-    return true;
-  });
-}
-/*************** Rendering (wie bisher, aber mit Firestore‑IDs) ***************/
-function renderEntries(list){
-  const ul=document.getElementById('entries');ul.innerHTML='';
-  [...list].reverse().forEach(e=>{
-    const li=document.createElement('li');
-    li.className='flex justify-between items-center bg-white p-3 rounded shadow';
-    li.innerHTML=`<div><span>${new Date(e.date).toLocaleDateString('de-DE')} — ${e.category}</span><span class='block text-sm text-gray-500'>${e.amount.toFixed(2)} €</span></div><button class='text-red-500 hover:text-red-700 font-bold' data-id='${e.id}'>✕</button>`;
-    ul.appendChild(li);
-  });
-  ul.querySelectorAll('button[data-id]').forEach(b=>{ b.onclick=()=>db.collection('entries').doc(b.dataset.id).delete(); });
-}
-
-function renderSummary(list){
-  const ul=document.getElementById('summary');ul.innerHTML='';
-  const sums={};
-  list.forEach(e=>sums[e.category]=(sums[e.category]||0)+e.amount);
-  Object.entries(sums).forEach(([cat,sum])=>{
-    const li=document.createElement('li');
-    li.className='flex justify-between bg-white p-3 rounded shadow';
-    li.innerHTML=`<span>${cat}</span><span>${sum.toFixed(2)} €</span>`;
-    ul.appendChild(li);
-  });
-  const total=list.reduce((s,e)=>s+e.amount,0);
-  const li=document.createElement('li');
-  li.className='flex justify-between font-bold bg-gray-200 p-3 rounded';
-  li.innerHTML=`<span>Gesamt</span><span>${total.toFixed(2)} €</span>`;
-  ul.appendChild(li);
-}
-
-function renderMonthList(list){
-  const ul=document.getElementById('monthList');ul.innerHTML='';
-  const sums={};
-  list.forEach(e=>{
-    const d=new Date(e.date);
-    const key=`${d.getFullYear()}-${d.getMonth()}`;
-    sums[key]=(sums[key]||0)+e.amount;
-  });
-  Object.entries(sums).sort((a,b)=>b[0].localeCompare(a[0])).forEach(([k,sum])=>{
-    const [y,m]=k.split('-').map(Number);
-    const li=document.createElement('li');
-    li.className='flex justify-between bg-white p-3 rounded shadow';
-    li.innerHTML=`<span>${monthNames[m]} ${y}</span><span>${sum.toFixed(2)} €</span>`;
-    ul.appendChild(li);
-  });
-}
-
-function renderCharts(list){
-  /* Monats‑Chart */
-  const mSums={};
-  list.forEach(e=>{
-    const d=new Date(e.date);
-    const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    mSums[k]=(mSums[k]||0)+e.amount;
-  });
-  const mLabels=Object.keys(mSums).sort();
-  const mValues=mLabels.map(l=>mSums[l]);
-  if(monthlyChart) monthlyChart.destroy();
-  monthlyChart=new Chart(document.getElementById('monthlyChart'),{
-    type:'line',
-    data:{labels:mLabels,datasets:[{label:'Gesamt (€)',data:mValues,fill:true,
-           backgroundColor:'rgba(59,130,246,.2)',borderColor:'rgba(59,130,246,1)',tension:.3}]},
-    options:{responsive:true,scales:{y:{beginAtZero:true}}}
-  });
-
-  /* Kategorie‑Chart */
-  const cSums={};
-  list.forEach(e=>cSums[e.category]=(cSums[e.category]||0)+e.amount);
-  const cLabels=Object.keys(cSums);
-  const cValues=cLabels.map(l=>cSums[l]);
-  if(categoryChart) categoryChart.destroy();
-  categoryChart=new Chart(document.getElementById('categoryChart'),{
-    type:'pie',
-    data:{labels:cLabels,datasets:[{data:cValues,
-      backgroundColor:cLabels.map((_,i)=>`hsl(${i*360/cLabels.length},70%,70%)`)}]},
-    options:{responsive:true,plugins:{legend:{position:'bottom'}}}
-  });
-}
-
-/* ---------- Refresh ---------- */
-function refreshAll(){
-  const filtered=getFilteredData();
-  renderEntries(filtered);
-  renderSummary(filtered);
-  renderMonthList(filtered);
-  renderCharts(filtered);
-}
-
-
-/*************** Formular‑Submit → Firestore ***************/
-document.getElementById('expenseForm').addEventListener('submit', async e => {
-  e.preventDefault();
-  const amount = parseFloat(document.getElementById('amount').value);
-  if (!selectedCat) {
-    document.getElementById('catWarning').classList.remove('hidden');
-    return;
-  }
-  if (amount > 0) {
-    await db.collection('expenses').add({
-      amount,
-      category: selectedCat,
-      date: new Date().toISOString()
-    });
-    document.getElementById('expenseForm').reset();
-  }
-});
-
-document.getElementById('filterInput').addEventListener('input',refreshAll);
-document.querySelectorAll('.range-btn').forEach(btn=>{
-  btn.onclick=()=>{ currentRange=btn.dataset.range; document.querySelectorAll('.range-btn').forEach(b=>b.classList.remove('bg-blue-800')); btn.classList.add('bg-blue-800'); refreshAll(); };
-});
-
-// Firestore Livefeed starten
-initFirestoreFeed();
-
-/* ---------- Init ---------- */
-updateQuickCategories();
-document.querySelector('[data-range="'+currentRange+'"]').classList.add('bg-blue-800');
-
-
-refreshAll();
-</script>
-
+    /* ---------- Init ---------- */
+    subscribeExpensesFeed();
+    subscribeQuickCategoriesFeed();
+    document.querySelector(`[data-range="${currentRange}"]`).classList.add("bg-blue-800");
+    refreshAll();
+  </script>
 </body>
 </html>
