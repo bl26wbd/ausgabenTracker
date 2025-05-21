@@ -123,7 +123,7 @@ const save = (key,val) => localStorage.setItem(key,JSON.stringify(val));
 let data = [];                        // Einträge aus Firestore
 let unsubscribe;          
 
-listenToFirestore();     // für das Live‑Abo
+
 let quickCategories = load(CAT_KEY)   || [
   {cat:'auto',    icon:'🚗'},
   {cat:'wohnung', icon:'🏠'},
@@ -132,6 +132,8 @@ let quickCategories = load(CAT_KEY)   || [
 let selectedCat = null;
 let currentRange = 'current';
 let monthlyChart=null, categoryChart=null;
+const COLLECTION_NAME = 'entries';
+
 
 /* ---------- Kontextmenü für Schnellkategorien ---------- */
 let qcMenu = null;
@@ -398,7 +400,7 @@ document.getElementById('expenseForm').addEventListener('submit', async e => {
     return;
   }
   if (amount > 0) {
-    await db.collection('entries').add({
+    await db.collection('expenses').add({
       amount,
       category: selectedCat,
       date: new Date().toISOString()
