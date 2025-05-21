@@ -1,560 +1,637 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Expense Tracker</title>
+<!DOCTYPE html> 
+<html lang="de"> 
+<head> 
+    <meta charset="UTF-8" /> 
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Expense Tracker</title>
+    <!-- Tailwind v2 --> 
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"/>
+    <!-- Chart.js --> 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Firebase (v9 compat) --> 
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script> 
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <style> 
+    .context-menu{
+        position:absolute;
+        background:#fff;
+        border:1px solid #ccc;
+        padding:10px;
+        z-index:1000;
+        cursor:pointer;
+        box-shadow:0 2px 6px rgba(0,0,0,.2);
+        user-select:none
+    } 
+    </style> 
+</head> 
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4"> 
+    <!-- ───── LOGIN ───── --> 
+    <div id="loginView" class="w-full max-w-sm bg-white p-6 rounded-lg shadow-lg"> 
+        <h1 class="text-2xl font-bold mb-6 text-center">🔐 Anmeldung</h1> 
+        <form id="loginForm" class="space-y-4"> 
+            <input id="loginUser" class="w-full p-3 border rounded focus:outline-none focus:ring" placeholder="Benutzername" required/> 
+            <input id="loginCode" type="password" maxlength="4" pattern="\d{4}" class="w-full p-3 border rounded focus:outline-none focus:ring" placeholder="4-stelliger Code" required/> 
+            <button class="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded font-semibold"> 
+                Einloggen 
+            </button> 
+        </form> 
+        <button id="toRegister" class="w-full mt-4 bg-gray-200 hover:bg-gray-300 text-gray-800 p-2 rounded"> 
+            Neu hier? Registrieren 
+        </button> 
+    </div> 
 
-  <!-- TailwindCSS (v2) -->
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Firebase (v9 compat) -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <!-- ───── REGISTRIERUNG ───── --> 
+    <div id="registerView" class="hidden w-full max-w-sm bg-white p-6 rounded-lg shadow-lg"> 
+        <h1 class="text-2xl font-bold mb-6 text-center">📝 Registrierung</h1> 
+        <form id="registerForm" class="space-y-4"> 
+            <input id="regUser" class="w-full p-3 border rounded focus:outline-none focus:ring" placeholder="Benutzername" required/> 
+            <input id="regCode" type="password" maxlength="4" pattern="\d{4}" class="w-full p-3 border rounded focus:outline-none focus:ring" placeholder="4-stelliger Code" required/> 
+            <button class="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded font-semibold"> 
+                Account erstellen 
+            </button> 
+        </form> 
+        <button id="toLogin" class="w-full mt-4 bg-gray-200 hover:bg-gray-300 p-2 rounded"> 
+            Zurück zur Anmeldung 
+        </button> 
+    </div> 
 
-  <style>
-    /* Modal‑Backdrop */
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0, 0, 0, 0.45);
-      z-index: 50;
-    }
+    <!-- ───── APP ───── --> 
+    <div id="appView" class="hidden w-full"> 
+        <div class="flex justify-between items-center mb-4"> 
+            <h1 class="text-2xl font-bold">💸 Expense Tracker</h1> 
+            <div> 
+                <span id="currentUserSpan" class="mr-3 font-medium text-gray-700"></span> 
+                <button id="logoutBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-semibold"> 
+                    Logout 
+                </button> 
+            </div> 
+        </div> 
 
-    /* (❌‑Stile bleiben, falls du sie später wieder brauchst) */
-    .cat-del {
-      position: absolute;
-      top: -6px;
-      right: -6px;
-      width: 18px;
-      height: 18px;
-      font-size: 12px;
-      line-height: 18px;
-      background: #dc2626;
-      color: #fff;
-      border-radius: 9999px;
-      cursor: pointer;
-    }
+        <!-- Haupt-Grid --> 
+        <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6"> 
+            <!-- Eingabe & Filter --> 
+            <div class="md:col-span-1"> 
+                <form id="expenseForm" class="space-y-3"> 
+                    <input id="amount" type="number" step="0.01" min="0" class="w-full p-3 border rounded focus:outline-none focus:ring" placeholder="Betrag (€)" required/> 
+                    <div id="quickCategories" class="flex flex-wrap gap-2"></div> 
+                    <p id="catWarning" class="text-red-600 text-sm hidden">Bitte eine Kategorie auswählen!</p> 
+                    <button class="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded font-semibold"> 
+                        Eintrag speichern 
+                    </button> 
+                </form> 
 
-    /* Kontextmenü */
-    .context-menu {
-      position: absolute;
-      background: #fff;
-      border: 1px solid #ccc;
-      padding: 10px;
-      z-index: 1000;
-      cursor: pointer;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-      user-select: none;
-    }
-  </style>
-</head>
-<body class="bg-gray-50 p-4">
-  <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-    <!-- ========= EINGABE & FILTER ========= -->
-    <div class="md:col-span-1">
-      <h1 class="text-2xl font-bold mb-4 text-center">💸 Expense Tracker</h1>
+                <div class="mt-6"> 
+                    <input id="filterInput" class="w-full p-2 border rounded" placeholder="🔍 Nach Kategorie filtern"/> 
+                </div> 
 
-      <!-- Formular -->
-      <form id="expenseForm" class="space-y-3">
-        <input
-          type="number"
-          step="0.01"
-          min="0"
-          placeholder="Betrag (€)"
-          id="amount"
-          required
-          class="w-full p-3 border rounded focus:outline-none focus:ring"
-        />
+                <div class="mt-4 flex justify-center space-x-4"> 
+                    <button data-range="current" class="range-btn bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-semibold shadow"> 
+                        📆 
+                    </button> 
+                    <button data-range="last" class="range-btn bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-semibold shadow"> 
+                        ⏪ 
+                    </button> 
+                    <button data-range="all" class="range-btn bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-semibold shadow"> 
+                        📊 
+                    </button> 
+                </div> 
 
-        <!-- Schnellkategorien (werden dynamisch gefüllt) -->
-        <div id="quickCategories" class="flex flex-wrap gap-2"></div>
-        <p id="catWarning" class="text-red-600 text-sm hidden">
-          Bitte eine Kategorie auswählen !
-        </p>
+                <h2 class="text-xl font-semibold mt-8 mb-2">Einträge</h2> 
+                <ul id="entries" class="space-y-2"></ul> 
+            </div> 
 
-        <button
-          type="submit"
-          class="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded font-semibold"
-        >
-          Eintrag speichern
-        </button>
-      </form>
+            <!-- Übersicht --> 
+            <div class="md:col-span-1"> 
+                <h2 class="text-xl font-semibold mb-4 text-center">📂 Übersicht</h2> 
+                <ul id="summary" class="space-y-2"></ul> 
+                
+                <h3 class="text-lg font-semibold mt-6 mb-2 text-center">🧾 Monate</h3> 
+                <ul id="monthList" class="space-y-2"></ul> 
+            </div> 
 
-      <!-- Kategorie‑Filter -->
-      <div class="mt-6">
-        <input
-          id="filterInput"
-          placeholder="🔍 Nach Kategorie filtern"
-          class="w-full p-2 border rounded"
-        />
-      </div>
+            <!-- Charts --> 
+            <div> 
+                <h2 class="text-xl font-semibold mb-2 text-center">📈 Monatsverlauf</h2> 
+                <canvas id="monthlyChart" class="bg-white rounded shadow"></canvas> 
+                
+                <h2 class="text-xl font-semibold mt-6 mb-2 text-center">📊 Kategorien</h2> 
+                <canvas id="categoryChart" class="bg-white rounded shadow"></canvas> 
+            </div> 
+        </div> 
+    </div> 
 
-      <!-- Zeitraum‑Buttons -->
-      <div class="mt-4 flex justify-center space-x-4">
-        <button
-          data-range="current"
-          class="range-btn bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-semibold shadow"
-        >
-          📆
-        </button>
-        <button
-          data-range="last"
-          class="range-btn bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-semibold shadow"
-        >
-          ⏪
-        </button>
-        <button
-          data-range="all"
-          class="range-btn bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-semibold shadow"
-        >
-          📊
-        </button>
-      </div>
-
-      <!-- Einträge -->
-      <h2 class="text-xl font-semibold mt-8 mb-2">Einträge</h2>
-      <ul id="entries" class="space-y-2"></ul>
-    </div>
-
-    <!-- ========= ÜBERSICHT ========= -->
-    <div class="md:col-span-1">
-      <h2 class="text-xl font-semibold mb-4 text-center">📂 Übersicht</h2>
-      <ul id="summary" class="space-y-2"></ul>
-
-      <h3 class="text-lg font-semibold mt-6 mb-2 text-center">🧾 Monate im Überblick</h3>
-      <ul id="monthList" class="space-y-2"></ul>
-    </div>
-
-    <!-- ========= CHARTS ========= -->
-    <div>
-      <h2 class="text-xl font-semibold mb-2 text-center">📈 Monatsverlauf</h2>
-      <canvas id="monthlyChart" class="bg-white rounded shadow"></canvas>
-
-      <h2 class="text-xl font-semibold mt-6 mb-2 text-center">📊 Kategorien</h2>
-      <canvas id="categoryChart" class="bg-white rounded shadow"></canvas>
-    </div>
-  </div>
-
-  <!-- ================= SCRIPT ================= -->
-  <script>
-    /* ---------- Firebase Config ---------- */
-    const firebaseConfig = {
-      apiKey: "AIzaSyBx817oguNx2crLpnJfg70Z8ju7pDA-rt4",
-      authDomain: "ausgabentracker-81c6b.firebaseapp.com",
-      projectId: "ausgabentracker-81c6b",
-      storageBucket: "ausgabentracker-81c6b.appspot.com",
-      messagingSenderId: "285156700598",
-      appId: "1:285156700598:web:a1a56f2cb5189bdc259117",
-      measurementId: "G-S2P74YLDL0",
-    };
-
-    firebase.initializeApp(firebaseConfig);
+    <!-- ───── SCRIPT ───── --> 
+    <script> 
+    /* ---------- Firebase ---------- */
+    firebase.initializeApp({ 
+        apiKey: "AIzaSyBx817oguNx2crLpnJfg70Z8ju7pDA-rt4", 
+        authDomain: "ausgabentracker-81c6b.firebaseapp.com", 
+        projectId: "ausgabentracker-81c6b" 
+    }); 
     const db = firebase.firestore();
+    
+    /* ---------- Collections ---------- */
+    const USERS = "users";      // { code } 
+    const EXPENSES = "expenses"; // { amount, category, date, user } 
+    const QUICK = "quickCategories"; // { cat, icon, user } 
 
-    /* ---------- Collection‑Konstanten ---------- */
-    const EXPENSE_COLLECTION = "expenses";
-    const QUICKCAT_COLLECTION = "quickCategories";
+    /* ---------- Helpers / State ---------- */
+    const $ = s => document.querySelector(s); 
+    const $$ = s => document.querySelectorAll(s); 
+    const hide = el => el.classList.add("hidden"); 
+    const show = el => el.classList.remove("hidden"); 
+    
+    let currentUser = null, data = [], quickCats = []; 
+    let unsubExp = null, unsubQC = null; 
+    let selectedCat = null, currentRange = "current"; 
+    let monthlyChart = null, categoryChart = null; 
 
-    /* ---------- Globale Variablen ---------- */
-    let data = []; // Einträge aus Firestore
-    let quickCategories = []; // Schnellkategorien aus Firestore
-    let unsubscribeExpenses;
-    let unsubscribeQuickCats;
+    /* ---------- View-Wechsel ---------- */
+    $("#toRegister").onclick = () => { 
+        hide($("#loginView")); 
+        show($("#registerView")); 
+    }; 
+    
+    $("#toLogin").onclick = () => { 
+        hide($("#registerView")); 
+        show($("#loginView")); 
+    }; 
 
-    let selectedCat = null;
-    let currentRange = "current";
-    let monthlyChart = null,
-      categoryChart = null;
-
-    /* ---------- Kontextmenü für Schnellkategorien ---------- */
-    let qcMenu = null;
-
-    function showQuickCatMenu(ev, catObj) {
-      hideQuickCatMenu();
-      qcMenu = document.createElement("div");
-      qcMenu.className = "context-menu";
-      qcMenu.style.top = ev.clientY + "px";
-      qcMenu.style.left = ev.clientX + "px";
-      qcMenu.textContent = "Kategorie löschen";
-      qcMenu.onclick = () => {
-        if (confirm(`Kategorie „${catObj.cat}” löschen?`)) {
-          db.collection(QUICKCAT_COLLECTION).doc(catObj.id).delete();
-          if (selectedCat === catObj.cat) selectedCat = null;
+    /* ---------- Session ---------- */
+    function startSession(name) { 
+        currentUser = name; 
+        $("#currentUserSpan").textContent = name; 
+        hide($("#loginView")); 
+        hide($("#registerView")); 
+        show($("#appView")); 
+        
+        // Starte Abonnements direkt
+        subscribeExpenses(); 
+        subscribeQuickCats(); 
+        
+        const activeBtn = document.querySelector(`[data-range='${currentRange}']`);
+        if (activeBtn) {
+            activeBtn.classList.add("bg-blue-800");
         }
-        hideQuickCatMenu();
-      };
-      document.body.appendChild(qcMenu);
-      // Klick außerhalb schließt Menü
-      setTimeout(() => document.addEventListener("click", hideQuickCatMenu), 0);
-    }
+    } 
 
-    function hideQuickCatMenu() {
-      if (qcMenu) {
-        qcMenu.remove();
-        qcMenu = null;
-        document.removeEventListener("click", hideQuickCatMenu);
-      }
-    }
+    /* ---------- LOGIN ---------- */
+    $("#loginForm").addEventListener("submit", async e => { 
+        e.preventDefault(); 
+        const user = $("#loginUser").value.trim().toLowerCase(); 
+        const code = $("#loginCode").value.trim(); 
+        if (!user || !/^\d{4}$/.test(code)) {
+            alert("Bitte gültige Daten eingeben.");
+            return;
+        } 
+        const doc = await db.collection(USERS).doc(user).get(); 
+        if (!doc.exists) {
+            alert("Benutzer nicht gefunden.");
+            return;
+        } 
+        if (doc.data().code !== code) {
+            alert("Falsches Passwort!");
+            return;
+        } 
+        startSession(user); 
+    }); 
 
-    /* ---------- Firestore – Live‑Feeds ---------- */
-    function subscribeExpensesFeed() {
-      if (unsubscribeExpenses) unsubscribeExpenses();
-      unsubscribeExpenses = db
-        .collection(EXPENSE_COLLECTION)
-        .orderBy("date", "desc")
-        .onSnapshot((snap) => {
-          data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-          refreshAll();
-        });
-    }
+    /* ---------- REGISTRIERUNG ---------- */
+    $("#registerForm").addEventListener("submit", async e => { 
+        e.preventDefault(); 
+        const user = $("#regUser").value.trim().toLowerCase(); 
+        const code = $("#regCode").value.trim(); 
+        if (!user || !/^\d{4}$/.test(code)) {
+            alert("Bitte gültige Daten eingeben.");
+            return;
+        } 
+        const ref = db.collection(USERS).doc(user); 
+        if ((await ref.get()).exists) {
+            alert("Benutzername existiert bereits.");
+            return;
+        } 
+        await ref.set({code}); 
+        alert("Registrierung erfolgreich!"); 
+        startSession(user); 
+    }); 
 
-    function subscribeQuickCategoriesFeed() {
-      if (unsubscribeQuickCats) unsubscribeQuickCats();
-      unsubscribeQuickCats = db
-        .collection(QUICKCAT_COLLECTION)
-        .orderBy("cat")
-        .onSnapshot((snap) => {
-          quickCategories = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-          updateQuickCategories();
-        });
-    }
+    /* ---------- LOGOUT ---------- */
+    $("#logoutBtn").onclick = () => { 
+        if (unsubExp) unsubExp(); 
+        if (unsubQC) unsubQC(); 
+        currentUser = null; 
+        data = []; 
+        quickCats = []; 
+        selectedCat = null; 
+        if (monthlyChart) monthlyChart.destroy(); 
+        if (categoryChart) categoryChart.destroy(); 
+        hide($("#appView")); 
+        show($("#loginView")); 
+        $("#loginForm").reset(); 
+        currentRange = "current"; 
+    }; 
 
-    /* ---------- Emoji‑Picker Dialog ---------- */
-    function openCategoryDialog() {
-      return new Promise((resolve) => {
-        const emojis = [
-          "🍔",
-          "🍕",
-          "🍜",
-          "🍺",
-          "💡",
-          "🚌",
-          "🚆",
-          "✈️",
-          "🎮",
-          "🎁",
-          "👕",
-          "📚",
-          "🏥",
-          "🎵",
-          "🎬",
-          "🛒",
-          "🐶",
-          "🐱",
-          "💻",
-          "🏃‍♂️",
-          "⚽️",
-          "🚗",
-          "🏠",
-          "📱",
-          "☕️",
-          "💳",
-          "🩺",
-        ];
-        const backdrop = document.createElement("div");
-        backdrop.className = "modal-backdrop";
-
-        const modal = document.createElement("div");
-        modal.className = "bg-white rounded-lg shadow-lg p-6 w-80";
-        modal.innerHTML = `
-          <h2 class="text-lg font-semibold mb-4 text-center">Neue Kategorie</h2>
-          <input id="catName" placeholder="Name der Kategorie" class="w-full border p-2 rounded mb-4 focus:outline-none focus:ring" />
-          <div id="emojiGrid" class="grid grid-cols-6 gap-2 mb-4 max-h-40 overflow-y-auto"></div>
-          <button id="saveCat" disabled class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-semibold opacity-50">Speichern</button>
-        `;
-        backdrop.appendChild(modal);
-        document.body.appendChild(backdrop);
-
-        let chosen = null;
-        const grid = modal.querySelector("#emojiGrid");
-        emojis.forEach((e) => {
-          const b = document.createElement("button");
-          b.type = "button";
-          b.textContent = e;
-          b.className = "text-2xl border rounded hover:bg-blue-100 flex items-center justify-center";
-          b.onclick = () => {
-            chosen = e;
-            grid
-              .querySelectorAll("button")
-              .forEach((x) => x.classList.remove("ring", "ring-blue-400"));
-            b.classList.add("ring", "ring-blue-400");
-            checkReady();
-          };
-          grid.appendChild(b);
-        });
-
-        const nameInput = modal.querySelector("#catName");
-        nameInput.addEventListener("input", checkReady);
-
-        function checkReady() {
-          const ok = nameInput.value.trim() && chosen;
-          const btn = modal.querySelector("#saveCat");
-          btn.disabled = !ok;
-          btn.style.opacity = ok ? "1" : ".5";
+    /* ---------- Firestore-Feeds ---------- */
+    function subscribeExpenses() { 
+        if (unsubExp) unsubExp();
+        
+        console.log("Starte Abonnement für Ausgaben");
+        
+        try {
+            // Vereinfachte Abfrage OHNE orderBy, um keinen Index zu benötigen
+            unsubExp = db.collection(EXPENSES)
+                .where("user", "==", currentUser)
+                .onSnapshot(snap => { 
+                    console.log("Neue Ausgabendaten erhalten:", snap.size, "Dokumente");
+                    
+                    // Sortiere die Daten lokal im Client
+                    data = snap.docs
+                        .map(d => {
+                            const docData = d.data();
+                            return {
+                                id: d.id, 
+                                amount: parseFloat(docData.amount),
+                                category: docData.category,
+                                date: docData.date,
+                                user: docData.user
+                            };
+                        })
+                        // Sortiere Daten lokal statt auf dem Server
+                        .sort((a, b) => b.date.localeCompare(a.date));
+                    
+                    console.log("Verarbeitete Daten:", data);
+                    refreshAll(); 
+                }, error => {
+                    console.error("Fehler beim Abrufen der Ausgaben:", error);
+                    alert("Fehler beim Laden der Ausgaben: " + error.message);
+                }); 
+        } catch (error) {
+            console.error("Fehler beim Einrichten des Ausgaben-Listeners:", error);
         }
+    } 
 
-        modal.querySelector("#saveCat").onclick = async () => {
-          const name = nameInput.value.trim().toLowerCase();
-          backdrop.remove();
-          resolve({ cat: name, icon: chosen });
-        };
-        backdrop.onclick = (e) => {
-          if (e.target === backdrop) {
-            backdrop.remove();
-            resolve(null);
-          }
-        };
-      });
-    }
-
-    /* ---------- Quick‑Categories Rendering ---------- */
-    function updateQuickCategories() {
-      const box = document.getElementById("quickCategories");
-      box.innerHTML = "";
-
-      quickCategories.forEach((qc) => {
-        const { cat, icon } = qc;
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = `relative px-3 py-1 rounded text-xl text-white ${
-          selectedCat === cat ? "ring-2 ring-offset-2 ring-blue-500" : ""
-        } bg-blue-600 hover:bg-blue-700 flex items-center justify-center`;
-        btn.textContent = icon;
-        btn.title = cat;
-
-        /* Kategorie wählen */
-        btn.onclick = () => {
-          selectedCat = cat;
-          document.getElementById("catWarning").classList.add("hidden");
-          updateQuickCategories();
-        };
-
-        /* Rechtsklick (Desktop) */
-        btn.addEventListener("contextmenu", (e) => {
-          e.preventDefault();
-          showQuickCatMenu(e, qc);
-        });
-
-        /* Langer Druck (Mobile) */
-        let touchTimer = null;
-        btn.addEventListener("touchstart", (e) => {
-          touchTimer = setTimeout(() => showQuickCatMenu(e.touches[0], qc), 600);
-        });
-        ["touchend", "touchmove", "touchcancel"].forEach((evt) => {
-          btn.addEventListener(evt, () => clearTimeout(touchTimer));
-        });
-
-        box.appendChild(btn);
-      });
-
-      /* " + "‑Button */
-      const plus = document.createElement("button");
-      plus.type = "button";
-      plus.textContent = "+";
-      plus.className = "bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded font-bold";
-      plus.onclick = async () => {
-        const res = await openCategoryDialog();
-        if (res) {
-          // Prüfen, ob die Kategorie schon existiert
-          const exists = quickCategories.some((c) => c.cat === res.cat);
-          if (!exists) {
-            await db.collection(QUICKCAT_COLLECTION).add(res);
-          } else {
-            alert("Kategorie existiert bereits.");
-          }
+    function subscribeQuickCats() { 
+        if (unsubQC) unsubQC();
+        
+        console.log("Starte Abonnement für Kategorien");
+        
+        try {
+            // Vereinfachte Abfrage OHNE orderBy, um keinen Index zu benötigen
+            unsubQC = db.collection(QUICK)
+                .where("user", "==", currentUser)
+                .onSnapshot(snap => { 
+                    console.log("Neue Kategoriedaten erhalten:", snap.size, "Dokumente");
+                    
+                    // Sortiere die Daten lokal im Client
+                    quickCats = snap.docs
+                        .map(d => ({id: d.id, ...d.data()}))
+                        .sort((a, b) => a.cat.localeCompare(b.cat)); 
+                    
+                    console.log("Verfügbare Kategorien:", quickCats);
+                    renderQuickCats(); 
+                }, error => {
+                    console.error("Fehler beim Abrufen der Kategorien:", error);
+                    alert("Fehler beim Laden der Kategorien: " + error.message);
+                }); 
+        } catch (error) {
+            console.error("Fehler beim Einrichten des Kategorie-Listeners:", error);
         }
-      };
-      box.appendChild(plus);
-    }
+    } 
 
-    /* ---------- Daten‑Filter ---------- */
-    function getFilteredData() {
-      const filter = document.getElementById("filterInput").value.toLowerCase();
-      const now = new Date();
-      return data.filter((e) => {
-        if (!e.category.toLowerCase().includes(filter)) return false;
-        const d = new Date(e.date);
-        if (currentRange === "current")
-          return (
-            d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-          );
-        if (currentRange === "last") {
-          const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-          return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
+    /* ---------- Quick-Kategorie-Dialog ---------- */
+    function openCatDialog() { 
+        return new Promise(res => { 
+            const em = ["🍔","🍕","🍜","🍺","💡","🚌","🚆","✈️","🎮","🎁","👕","📚","🏥","🎵","🎬","🛒","🐶","🐱","💻","🏃‍♂️","⚽️","🚗","🏠","📱","☕️","💳","🩺"]; 
+            const back = document.createElement("div");
+            back.className = "fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"; 
+            
+            const box = document.createElement("div"); 
+            box.className = "bg-white rounded-lg shadow-lg p-6 w-80"; 
+            box.innerHTML = `<h2 class="text-lg font-semibold mb-4 text-center">Neue Kategorie</h2> 
+            <input id="catName" class="w-full border p-2 rounded mb-3" placeholder="Name"/> 
+            <div id="grid" class="grid grid-cols-6 gap-2 mb-3 max-h-40 overflow-y-auto"></div> 
+            <button id="save" disabled class="w-full bg-blue-600 text-white py-2 rounded font-semibold opacity-50">Speichern</button>`; 
+            
+            back.appendChild(box); 
+            document.body.appendChild(back); 
+            
+            const grid = box.querySelector("#grid"); 
+            let icon = null; 
+            
+            em.forEach(e => { 
+                const b = document.createElement("button");
+                b.type = "button";
+                b.textContent = e; 
+                b.className = "text-2xl border rounded hover:bg-blue-100"; 
+                b.onclick = () => {
+                    icon = e;
+                    grid.querySelectorAll("button").forEach(x => x.classList.remove("ring", "ring-blue-400"));
+                    b.classList.add("ring", "ring-blue-400");
+                    chk();
+                }; 
+                grid.appendChild(b); 
+            }); 
+            
+            const nameIn = box.querySelector("#catName"); 
+            nameIn.oninput = chk; 
+            
+            function chk() {
+                const ok = nameIn.value.trim() && icon;
+                const btn = box.querySelector("#save");
+                btn.disabled = !ok;
+                btn.style.opacity = ok ? "1" : ".5";
+            } 
+            
+            box.querySelector("#save").onclick = () => {
+                res({cat: nameIn.value.trim().toLowerCase(), icon});
+                back.remove();
+            }; 
+            
+            back.onclick = e => {
+                if (e.target === back) {
+                    back.remove();
+                    res(null);
+                }
+            }; 
+        }); 
+    } 
+
+    /* ---------- Quick-Kategorie-Rendering ---------- */
+    function renderQuickCats() { 
+        const box = $("#quickCategories"); 
+        box.innerHTML = ""; 
+        
+        quickCats.forEach(q => { 
+            const btn = document.createElement("button"); 
+            btn.type = "button"; 
+            btn.className = `relative px-3 py-1 rounded text-xl text-white ${selectedCat === q.cat ? "ring-2 ring-offset-2 ring-blue-500" : ""} bg-blue-600 hover:bg-blue-700`; 
+            btn.textContent = q.icon; 
+            btn.title = q.cat; 
+            btn.onclick = () => {
+                selectedCat = q.cat;
+                $("#catWarning").classList.add("hidden");
+                renderQuickCats();
+            }; 
+            btn.oncontextmenu = e => {
+                e.preventDefault();
+                showCatMenu(e, q);
+            }; 
+            box.appendChild(btn); 
+        }); 
+        
+        const plus = document.createElement("button"); 
+        plus.type = "button";
+        plus.textContent = "+";
+        plus.className = "bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded font-bold"; 
+        plus.onclick = async () => {
+            const d = await openCatDialog();
+            if (d) {
+                if (quickCats.some(c => c.cat === d.cat)) {
+                    alert("Kategorie existiert bereits.");
+                } else {
+                    try {
+                        await db.collection(QUICK).add({...d, user: currentUser});
+                        console.log("Kategorie erfolgreich hinzugefügt:", d);
+                    } catch (error) {
+                        console.error("Fehler beim Hinzufügen der Kategorie:", error);
+                        alert("Fehler beim Hinzufügen der Kategorie: " + error.message);
+                    }
+                }
+            }
+        }; 
+        box.appendChild(plus); 
+    } 
+
+    /* ---------- Kontext-Menü ---------- */
+    let ctx = null; 
+    function showCatMenu(ev, q) { 
+        if (ctx) ctx.remove(); 
+        ctx = document.createElement("div");
+        ctx.className = "context-menu"; 
+        ctx.style.top = ev.clientY + "px";
+        ctx.style.left = ev.clientX + "px";
+        ctx.textContent = "Kategorie löschen"; 
+        ctx.onclick = async () => {
+            if (confirm(`"${q.cat}" löschen?`)) {
+                await db.collection(QUICK).doc(q.id).delete();
+                if (selectedCat === q.cat) selectedCat = null;
+            }
+            ctx.remove();
+            ctx = null;
+        }; 
+        document.body.appendChild(ctx); 
+        
+        setTimeout(() => {
+            document.addEventListener("click", () => {
+                if (ctx) {
+                    ctx.remove();
+                    ctx = null;
+                }
+            }, {once: true});
+        }, 0); 
+    } 
+
+    /* ---------- Expense-Form ---------- */
+    $("#expenseForm").addEventListener("submit", async e => { 
+        e.preventDefault(); 
+        const amountInput = $("#amount");
+        const amt = parseFloat(amountInput.value); 
+        
+        if (!selectedCat) {
+            $("#catWarning").classList.remove("hidden");
+            return;
+        } 
+        
+        if (isNaN(amt) || amt <= 0) {
+            alert("Bitte geben Sie einen gültigen Betrag ein.");
+            return;
         }
-        return true;
-      });
-    }
+        
+        try {
+            // Stelle sicher, dass die Daten korrekt formatiert sind
+            const expenseData = {
+                amount: amt,
+                category: selectedCat,
+                date: new Date().toISOString(),
+                user: currentUser
+            };
+            
+            console.log("Versuche Ausgabe zu speichern:", expenseData);
+            
+            // Ausgabe speichern
+            const docRef = await db.collection(EXPENSES).add(expenseData); 
+            console.log("Ausgabe gespeichert mit ID:", docRef.id);
+            
+            // Formular zurücksetzen
+            $("#expenseForm").reset();
+            selectedCat = null;
+            renderQuickCats();
+            console.log("Ausgabe erfolgreich hinzugefügt");
+        } catch (error) {
+            console.error("Fehler beim Hinzufügen der Ausgabe:", error);
+            alert("Fehler beim Speichern: " + error.message);
+        }
+    }); 
 
-    /*************** Rendering ***************/
-    const monthNames = [
-      "Januar",
-      "Februar",
-      "März",
-      "April",
-      "Mai",
-      "Juni",
-      "Juli",
-      "August",
-      "September",
-      "Oktober",
-      "November",
-      "Dezember",
-    ];
+    /* ---------- Filter / Range ---------- */
+    $("#filterInput").oninput = refreshAll; 
+    
+    $$(".range-btn").forEach(b => 
+        b.onclick = () => {
+            currentRange = b.dataset.range;
+            $$(".range-btn").forEach(x => x.classList.remove("bg-blue-800"));
+            b.classList.add("bg-blue-800");
+            refreshAll();
+        }
+    ); 
 
-    function renderEntries(list) {
-      const ul = document.getElementById("entries");
-      ul.innerHTML = "";
-      [...list].reverse().forEach((e) => {
+    /* ---------- Render-Funktionen ---------- */
+    function filtered() {
+        const f = $("#filterInput").value.toLowerCase();
+        const now = new Date(); 
+        
+        return data.filter(e => { 
+            if (!e.category.toLowerCase().includes(f)) return false; 
+            
+            const d = new Date(e.date); 
+            if (currentRange === "current") {
+                return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+            }
+            if (currentRange === "last") {
+                const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
+            } 
+            return true;
+        }); 
+    } 
+
+    const months = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"]; 
+    
+    function renderEntries(list) { 
+        const ul = $("#entries");
+        ul.innerHTML = "";
+        
+        [...list].forEach(e => { 
+            const li = document.createElement("li");
+            li.className = "flex justify-between items-center bg-white p-3 rounded shadow"; 
+            li.innerHTML = `<div><span>${new Date(e.date).toLocaleDateString("de-DE")} — ${e.category}</span>
+                <span class="block text-sm text-gray-500">${e.amount.toFixed(2)} €</span></div>
+                <button class="text-red-500 hover:text-red-700 font-bold" data-id="${e.id}">✕</button>`; 
+            ul.appendChild(li);
+        }); 
+        
+        ul.querySelectorAll("button[data-id]").forEach(b => 
+            b.onclick = () => db.collection(EXPENSES).doc(b.dataset.id).delete()
+        ); 
+    } 
+
+    function renderSummary(list) { 
+        const ul = $("#summary");
+        ul.innerHTML = "";
+        const sums = {};
+        
+        list.forEach(e => sums[e.category] = (sums[e.category] || 0) + e.amount); 
+        
+        Object.entries(sums).forEach(([c, s]) => {
+            const li = document.createElement("li");
+            li.className = "flex justify-between bg-white p-3 rounded shadow";
+            li.innerHTML = `<span>${c}</span><span>${s.toFixed(2)} €</span>`;
+            ul.appendChild(li);
+        }); 
+        
+        const total = list.reduce((a, e) => a + e.amount, 0); 
         const li = document.createElement("li");
-        li.className = "flex justify-between items-center bg-white p-3 rounded shadow";
-        li.innerHTML = `<div><span>${new Date(e.date).toLocaleDateString("de-DE")} — ${e.category}</span><span class='block text-sm text-gray-500'>${e.amount.toFixed(2)} €</span></div><button class='text-red-500 hover:text-red-700 font-bold' data-id='${e.id}'>✕</button>`;
-        ul.appendChild(li);
-      });
-      ul.querySelectorAll("button[data-id]").forEach((b) => {
-        b.onclick = () => db.collection(EXPENSE_COLLECTION).doc(b.dataset.id).delete();
-      });
-    }
+        li.className = "flex justify-between font-bold bg-gray-200 p-3 rounded";
+        li.innerHTML = `<span>Gesamt</span><span>${total.toFixed(2)} €</span>`;
+        ul.appendChild(li); 
+    } 
 
-    function renderSummary(list) {
-      const ul = document.getElementById("summary");
-      ul.innerHTML = "";
-      const sums = {};
-      list.forEach((e) => (sums[e.category] = (sums[e.category] || 0) + e.amount));
-      Object.entries(sums).forEach(([cat, sum]) => {
-        const li = document.createElement("li");
-        li.className = "flex justify-between bg-white p-3 rounded shadow";
-        li.innerHTML = `<span>${cat}</span><span>${sum.toFixed(2)} €</span>`;
-        ul.appendChild(li);
-      });
-      const total = list.reduce((s, e) => s + e.amount, 0);
-      const li = document.createElement("li");
-      li.className = "flex justify-between font-bold bg-gray-200 p-3 rounded";
-      li.innerHTML = `<span>Gesamt</span><span>${total.toFixed(2)} €</span>`;
-      ul.appendChild(li);
-    }
+    function renderMonthList(list) { 
+        const ul = $("#monthList");
+        ul.innerHTML = "";
+        const sums = {};
+        
+        list.forEach(e => {
+            const d = new Date(e.date);
+            const k = `${d.getFullYear()}-${d.getMonth()}`;
+            sums[k] = (sums[k] || 0) + e.amount;
+        }); 
+        
+        Object.entries(sums)
+            .sort((a, b) => b[0].localeCompare(a[0]))
+            .forEach(([k, s]) => {
+                const [y, m] = k.split("-").map(Number);
+                const li = document.createElement("li");
+                li.className = "flex justify-between bg-white p-3 rounded shadow";
+                li.innerHTML = `<span>${months[m]} ${y}</span><span>${s.toFixed(2)} €</span>`;
+                ul.appendChild(li);
+            }); 
+    } 
 
-    function renderMonthList(list) {
-      const ul = document.getElementById("monthList");
-      ul.innerHTML = "";
-      const sums = {};
-      list.forEach((e) => {
-        const d = new Date(e.date);
-        const key = `${d.getFullYear()}-${d.getMonth()}`;
-        sums[key] = (sums[key] || 0) + e.amount;
-      });
-      Object.entries(sums)
-        .sort((a, b) => b[0].localeCompare(a[0]))
-        .forEach(([k, sum]) => {
-          const [y, m] = k.split("-").map(Number);
-          const li = document.createElement("li");
-          li.className = "flex justify-between bg-white p-3 rounded shadow";
-          li.innerHTML = `<span>${monthNames[m]} ${y}</span><span>${sum.toFixed(2)} €</span>`;
-          ul.appendChild(li);
-        });
-    }
-
-    function renderCharts(list) {
-      /* Monats‑Chart */
-      const mSums = {};
-      list.forEach((e) => {
-        const d = new Date(e.date);
-        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        mSums[k] = (mSums[k] || 0) + e.amount;
-      });
-      const mLabels = Object.keys(mSums).sort();
-      const mValues = mLabels.map((l) => mSums[l]);
-      if (monthlyChart) monthlyChart.destroy();
-      monthlyChart = new Chart(document.getElementById("monthlyChart"), {
-        type: "line",
-        data: {
-          labels: mLabels,
-          datasets: [
-            {
-              label: "Gesamt (€)",
-              data: mValues,
-              fill: true,
-              backgroundColor: "rgba(59,130,246,.2)",
-              borderColor: "rgba(59,130,246,1)",
-              tension: 0.3,
+    function renderCharts(list) { 
+        /* Monatschart */
+        const mSum = {};
+        
+        list.forEach(e => {
+            const d = new Date(e.date);
+            const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+            mSum[k] = (mSum[k] || 0) + e.amount;
+        }); 
+        
+        const mLab = Object.keys(mSum).sort();
+        const mVal = mLab.map(l => mSum[l]); 
+        
+        if (monthlyChart) monthlyChart.destroy(); 
+        monthlyChart = new Chart($("#monthlyChart"), {
+            type: "line",
+            data: {
+                labels: mLab,
+                datasets: [{
+                    label: "Gesamt (€)",
+                    data: mVal,
+                    fill: true,
+                    backgroundColor: "rgba(59,130,246,.25)",
+                    borderColor: "rgba(59,130,246,1)",
+                    tension: .3
+                }]
             },
-          ],
-        },
-        options: { responsive: true, scales: { y: { beginAtZero: true } } },
-      });
-
-      /* Kategorie‑Chart */
-      const cSums = {};
-      list.forEach((e) => (cSums[e.category] = (cSums[e.category] || 0) + e.amount));
-      const cLabels = Object.keys(cSums);
-      const cValues = cLabels.map((l) => cSums[l]);
-      if (categoryChart) categoryChart.destroy();
-      categoryChart = new Chart(document.getElementById("categoryChart"), {
-        type: "pie",
-        data: {
-          labels: cLabels,
-          datasets: [
-            {
-              data: cValues,
-              backgroundColor: cLabels.map(
-                (_, i) => `hsl(${(i * 360) / cLabels.length},70%,70%)`
-              ),
+            options: {
+                responsive: true,
+                scales: {y: {beginAtZero: true}}
+            }
+        }); 
+        
+        /* Kategorie-Pie */
+        const cSum = {};
+        list.forEach(e => cSum[e.category] = (cSum[e.category] || 0) + e.amount); 
+        
+        const cLab = Object.keys(cSum);
+        const cVal = cLab.map(l => cSum[l]); 
+        
+        if (categoryChart) categoryChart.destroy(); 
+        categoryChart = new Chart($("#categoryChart"), {
+            type: "pie",
+            data: {
+                labels: cLab,
+                datasets: [{
+                    data: cVal,
+                    backgroundColor: cLab.map((_, i) => `hsl(${i*360/cLab.length},70%,70%)`)
+                }]
             },
-          ],
-        },
-        options: { responsive: true, plugins: { legend: { position: "bottom" } } },
-      });
-    }
+            options: {
+                responsive: true,
+                plugins: {legend: {position: "bottom"}}
+            }
+        }); 
+    } 
 
-    /* ---------- Refresh alles ---------- */
     function refreshAll() {
-      const filtered = getFilteredData();
-      renderEntries(filtered);
-      renderSummary(filtered);
-      renderMonthList(filtered);
-      renderCharts(filtered);
-    }
-
-    /*************** Formular‑Submit → Firestore ***************/
-    document.getElementById("expenseForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const amount = parseFloat(document.getElementById("amount").value);
-      if (!selectedCat) {
-        document.getElementById("catWarning").classList.remove("hidden");
-        return;
-      }
-      if (amount > 0) {
-        await db.collection(EXPENSE_COLLECTION).add({
-          amount,
-          category: selectedCat,
-          date: new Date().toISOString(),
-        });
-        document.getElementById("expenseForm").reset();
-      }
-    });
-
-    document.getElementById("filterInput").addEventListener("input", refreshAll);
-    document.querySelectorAll(".range-btn").forEach((btn) => {
-      btn.onclick = () => {
-        currentRange = btn.dataset.range;
-        document.querySelectorAll(".range-btn").forEach((b) =>
-          b.classList.remove("bg-blue-800")
-        );
-        btn.classList.add("bg-blue-800");
-        refreshAll();
-      };
-    });
-
-    /* ---------- Init ---------- */
-    subscribeExpensesFeed();
-    subscribeQuickCategoriesFeed();
-    document.querySelector(`[data-range="${currentRange}"]`).classList.add("bg-blue-800");
-    refreshAll();
-  </script>
-</body>
+        const list = filtered();
+        renderEntries(list);
+        renderSummary(list);
+        renderMonthList(list);
+        renderCharts(list);
+    } 
+    </script> 
+</body> 
 </html>
