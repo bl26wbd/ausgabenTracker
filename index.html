@@ -21,7 +21,64 @@
         cursor:pointer;
         box-shadow:0 2px 6px rgba(0,0,0,.2);
         user-select:none
-    } 
+    }
+    
+    .dropdown {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .dropdown-content {
+        display: none;
+        position: absolute;
+        right: 0;
+        background-color: #f9f9f9;
+        min-width: 160px;
+        box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+        z-index: 1;
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+    
+    .dropdown-content a {
+        padding: 12px 16px;
+        text-decoration: none;
+        display: block;
+        color: #333;
+    }
+    
+    .dropdown-content a:hover {
+        background-color: #f1f1f1;
+    }
+    
+    .show {
+        display: block;
+    }
+
+    .emoji-icon {
+        font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols', sans-serif;
+        font-size: 1.2em;
+        display: inline-block;
+        vertical-align: middle;
+    }
+    
+    .progress-bar {
+        background-color: #e5e7eb;
+        border-radius: 0.5rem;
+        height: 0.5rem;  
+        overflow: hidden;
+    }
+    
+    .progress-fill {
+        height: 100%;
+        background-color: #3b82f6;
+        border-radius: 0.5rem;
+        transition: width 0.3s ease;
+    }
+    
+    .progress-fill.over-limit {
+        background-color: #ef4444;
+    }
     </style> 
 </head> 
 <body class="bg-gray-50 min-h-screen flex items-center justify-center p-4"> 
@@ -54,16 +111,38 @@
             Zurück zur Anmeldung 
         </button> 
     </div> 
+    
+    <!-- ───── PASSWORT ÄNDERN ───── --> 
+    <div id="changePasswordView" class="hidden w-full max-w-sm bg-white p-6 rounded-lg shadow-lg"> 
+        <h1 class="text-2xl font-bold mb-6 text-center">🔑 Passwort ändern</h1> 
+        <form id="changePasswordForm" class="space-y-4"> 
+            <input id="cpUser" class="w-full p-3 border rounded focus:outline-none focus:ring bg-gray-100" readonly/> 
+            <input id="cpOldCode" type="password" maxlength="4" pattern="\d{4}" class="w-full p-3 border rounded focus:outline-none focus:ring" placeholder="Aktueller 4-stelliger Code" required/> 
+            <input id="cpNewCode" type="password" maxlength="4" pattern="\d{4}" class="w-full p-3 border rounded focus:outline-none focus:ring" placeholder="Neuer 4-stelliger Code" required/> 
+            <button class="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded font-semibold"> 
+                Passwort aktualisieren 
+            </button> 
+        </form> 
+        <button id="cancelPasswordChange" class="w-full mt-4 bg-gray-200 hover:bg-gray-300 p-2 rounded"> 
+            Abbrechen 
+        </button> 
+    </div>
 
     <!-- ───── APP ───── --> 
     <div id="appView" class="hidden w-full"> 
         <div class="flex justify-between items-center mb-4"> 
             <h1 class="text-2xl font-bold">💸 Expense Tracker</h1> 
-            <div> 
+            <div class="flex items-center"> 
                 <span id="currentUserSpan" class="mr-3 font-medium text-gray-700"></span> 
-                <button id="logoutBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-semibold"> 
-                    Logout 
-                </button> 
+                <div class="dropdown">
+                    <button id="settingsBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-2 rounded-full font-semibold">
+                        ⚙️
+                    </button>
+                    <div id="settingsDropdown" class="dropdown-content">
+                        <a href="#" id="changePasswordBtn">🔑 Passwort ändern</a>
+                        <a href="#" id="logoutBtn" class="text-red-600 hover:text-red-700">🚪 Logout</a>
+                    </div>
+                </div>
             </div> 
         </div> 
 
@@ -72,7 +151,7 @@
             <!-- Eingabe & Filter --> 
             <div class="md:col-span-1"> 
                 <form id="expenseForm" class="space-y-3"> 
-                    <input id="amount" type="number" step="0.01" min="0" class="w-full p-3 border rounded focus:outline-none focus:ring" placeholder="Betrag (€)" required/> 
+                    <input id="amount" type="number" step="0.01" min="0" max="999999.99" class="w-full p-3 border rounded focus:outline-none focus:ring" placeholder="Betrag (€)" required/> 
                     <div id="quickCategories" class="flex flex-wrap gap-2"></div> 
                     <p id="catWarning" class="text-red-600 text-sm hidden">Bitte eine Kategorie auswählen!</p> 
                     <button class="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded font-semibold"> 
@@ -81,7 +160,7 @@
                 </form> 
 
                 <div class="mt-6"> 
-                    <input id="filterInput" class="w-full p-2 border rounded" placeholder="🔍 Nach Kategorie filtern"/> 
+                    <input id="filterInput" class="w-full p-2 border rounded" placeholder="🔍 Nach Kategorie filtern" maxlength="50"/> 
                 </div> 
 
                 <div class="mt-4 flex justify-center space-x-4"> 
@@ -105,6 +184,34 @@
                 <h2 class="text-xl font-semibold mb-4 text-center">📂 Übersicht</h2> 
                 <ul id="summary" class="space-y-2"></ul> 
                 
+                <!-- Ausgabenlimit Eingabe -->
+                <div class="mt-4 bg-white p-4 rounded shadow">
+                    <h3 class="text-lg font-semibold mb-2">💰 Monatsbudget</h3>
+                    <div class="flex gap-2">
+                        <input id="limitInput" type="number" step="0.01" min="0" max="999999.99" 
+                               class="flex-1 p-2 border rounded focus:outline-none focus:ring" 
+                               placeholder="Budget (€)"/>
+                        <button id="saveLimitBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                            💾
+                        </button>
+                    </div>
+                    <div id="limitProgress" class="mt-3 hidden">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span>Ausgegeben:</span>
+                            <span id="limitText"></span>
+                        </div>
+                        <div class="progress-bar">
+                            <div id="limitBar" class="progress-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div id="savingsDisplay" class="mt-3 hidden">
+                        <div class="text-center">
+                            <span class="text-lg font-semibold text-green-600">💰 Ersparnis: </span>
+                            <span id="savingsAmount" class="text-lg font-bold text-green-600">0.00 €</span>
+                        </div>
+                    </div>
+                </div>
+                
                 <h3 class="text-lg font-semibold mt-6 mb-2 text-center">🧾 Monate</h3> 
                 <ul id="monthList" class="space-y-2"></ul> 
             </div> 
@@ -115,7 +222,13 @@
                 <canvas id="monthlyChart" class="bg-white rounded shadow"></canvas> 
                 
                 <h2 class="text-xl font-semibold mt-6 mb-2 text-center">📊 Kategorien</h2> 
-                <canvas id="categoryChart" class="bg-white rounded shadow"></canvas> 
+                <canvas id="categoryChart" class="bg-white rounded shadow"></canvas>
+                
+                <h2 class="text-xl font-semibold mt-6 mb-2 text-center">📈 Monatsvergleich</h2> 
+                <canvas id="monthlyComparisonChart" class="bg-white rounded shadow"></canvas>
+                
+                <h2 class="text-xl font-semibold mt-6 mb-2 text-center">💰 Gesamtersparnis</h2> 
+                <canvas id="totalSavingsChart" class="bg-white rounded shadow"></canvas>
             </div> 
         </div> 
     </div> 
@@ -133,7 +246,8 @@
     /* ---------- Collections ---------- */
     const USERS = "users";      // { code } 
     const EXPENSES = "expenses"; // { amount, category, date, user } 
-    const QUICK = "quickCategories"; // { cat, icon, user } 
+    const QUICK = "quickCategories"; // { cat, icon, user }
+    const LIMITS = "monthlyLimits"; // { limit, month, year, user } 
 
     /* ---------- Helpers / State ---------- */
     const $ = s => document.querySelector(s); 
@@ -141,10 +255,208 @@
     const hide = el => el.classList.add("hidden"); 
     const show = el => el.classList.remove("hidden"); 
     
-    let currentUser = null, data = [], quickCats = []; 
-    let unsubExp = null, unsubQC = null; 
+    let currentUser = null, data = [], quickCats = [], monthlyLimit = 0; 
+    let unsubExp = null, unsubQC = null, unsubLimits = null; 
     let selectedCat = null, currentRange = "current"; 
-    let monthlyChart = null, categoryChart = null; 
+    let monthlyChart = null, categoryChart = null, monthlyComparisonChart = null, totalSavingsChart = null; 
+    let sessionTimeout = null;
+
+    /* ---------- Erweiterte Sicherheitsfunktionen ---------- */
+    function sanitizeInput(input) {
+        if (typeof input !== 'string') return input;
+        return input
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;')
+            .replace(/\//g, '&#x2F;')
+            .replace(/`/g, '&#96;')
+            .replace(/\\/g, '&#92;')
+            .replace(/\{/g, '&#123;')
+            .replace(/\}/g, '&#125;')
+            .replace(/\[/g, '&#91;')
+            .replace(/\]/g, '&#93;')
+            .replace(/\(/g, '&#40;')
+            .replace(/\)/g, '&#41;')
+            .replace(/\*/g, '&#42;')
+            .replace(/\+/g, '&#43;')
+            .replace(/\?/g, '&#63;')
+            .replace(/\^/g, '&#94;')
+            .replace(/\$/g, '&#36;')
+            .replace(/\|/g, '&#124;')
+            .trim();
+    }
+    
+    function sanitizeHTML(html) {
+        const div = document.createElement('div');
+        div.textContent = html;
+        return div.innerHTML;
+    }
+    
+    function validateNumber(value, min = 0, max = 999999.99) {
+        const num = parseFloat(value);
+        if (isNaN(num) || num < min || num > max || !isFinite(num)) return null;
+        return Math.round(num * 100) / 100; // Runde auf 2 Dezimalstellen
+    }
+    
+    function validateCode(code) {
+        if (typeof code !== 'string') return null;
+        const sanitized = code.replace(/[^\d]/g, '');
+        return sanitized.length === 4 ? sanitized : null;
+    }
+    
+    function validateUsername(username) {
+        if (typeof username !== 'string') return null;
+        const sanitized = username.toLowerCase().replace(/[^a-z0-9_]/g, '');
+        return sanitized.length >= 3 && sanitized.length <= 20 ? sanitized : null;
+    }
+    
+    function validateCategory(category) {
+        if (typeof category !== 'string') return null;
+        const sanitized = category.toLowerCase().replace(/[^a-z0-9äöüß\s\-_]/gi, '').trim();
+        return sanitized.length >= 1 && sanitized.length <= 50 ? sanitized : null;
+    }
+    
+    function validateEmoji(emoji) {
+        if (typeof emoji !== 'string') return '📋';
+        // Erweiterte Emoji-Validierung
+        const emojiRegex = /^[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1FA70}-\u{1FAFF}]$/u;
+        return emojiRegex.test(emoji.trim()) ? emoji.trim() : '📋';
+    }
+    
+    // CSP und weitere Sicherheitsmaßnahmen
+    function preventXSS() {
+        // Disable eval und Function constructor
+        const originalEval = window.eval;
+        window.eval = function() {
+            console.warn('eval() wurde aus Sicherheitsgründen blockiert');
+            throw new Error('eval() ist aus Sicherheitsgründen deaktiviert');
+        };
+        
+        // Überwache innerHTML Zugriffe
+        const originalInnerHTML = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+        Object.defineProperty(Element.prototype, 'innerHTML', {
+            get: originalInnerHTML.get,
+            set: function(value) {
+                if (typeof value === 'string' && (value.includes('<script') || value.includes('javascript:'))) {
+                    console.warn('Potentiell gefährlicher HTML-Inhalt blockiert');
+                    throw new Error('Script-Tags und JavaScript-URLs sind nicht erlaubt');
+                }
+                return originalInnerHTML.set.call(this, value);
+            }
+        });
+    }
+    
+    // Content Security Policy Headers simulieren
+    function setupSecurityHeaders() {
+        const meta = document.createElement('meta');
+        meta.httpEquiv = 'Content-Security-Policy';
+        meta.content = "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:; connect-src 'self' https://firestore.googleapis.com;";
+        document.head.appendChild(meta);
+    }
+    
+    // Rate Limiting für API-Calls
+    const rateLimiter = {
+        calls: {},
+        limit: 10, // Max 10 calls per minute
+        window: 60000, // 1 minute
+        
+        canMakeCall(key) {
+            const now = Date.now();
+            if (!this.calls[key]) {
+                this.calls[key] = [];
+            }
+            
+            // Remove old calls outside the window
+            this.calls[key] = this.calls[key].filter(time => now - time < this.window);
+            
+            if (this.calls[key].length >= this.limit) {
+                return false;
+            }
+            
+            this.calls[key].push(now);
+            return true;
+        }
+    };
+    
+    const SESSION_KEY = "expenseTrackerSession";
+    const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
+    
+    function saveSession() {
+        if (!currentUser) return;
+        const sessionData = {
+            user: currentUser,
+            expiry: Date.now() + SESSION_TIMEOUT,
+            csrfToken: generateCSRFToken()
+        };
+        try {
+            localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+        } catch (e) {
+            console.error("Fehler beim Speichern der Session:", e);
+        }
+    }
+    
+    function loadSession() {
+        try {
+            const sessionData = localStorage.getItem(SESSION_KEY);
+            if (!sessionData) return null;
+            
+            const session = JSON.parse(sessionData);
+            if (Date.now() > session.expiry) {
+                clearSession();
+                return null;
+            }
+            return session.user;
+        } catch (e) {
+            console.error("Fehler beim Laden der Session:", e);
+            clearSession();
+            return null;
+        }
+    }
+    
+    function clearSession() {
+        try {
+            localStorage.removeItem(SESSION_KEY);
+        } catch (e) {
+            console.error("Fehler beim Löschen der Session:", e);
+        }
+        if (sessionTimeout) {
+            clearTimeout(sessionTimeout);
+            sessionTimeout = null;
+        }
+    }
+    
+    function generateCSRFToken() {
+        return Math.random().toString(36).substr(2, 15) + Date.now().toString(36);
+    }
+    
+    function refreshSession() {
+        if (currentUser) {
+            saveSession();
+            
+            // Clear existing timeout and set a new one
+            if (sessionTimeout) {
+                clearTimeout(sessionTimeout);
+            }
+            
+            sessionTimeout = setTimeout(() => {
+                logout();
+                alert("Sie wurden automatisch abgemeldet (Sitzung abgelaufen).");
+            }, SESSION_TIMEOUT);
+        }
+    }
+    
+    // Activity detection to refresh session
+    ["click", "keydown", "mousemove", "touchstart"].forEach(eventType => {
+        document.addEventListener(eventType, refreshSession, { passive: true });
+    });
+
+    // Initialisiere Sicherheitsmaßnahmen
+    document.addEventListener('DOMContentLoaded', function() {
+        preventXSS();
+        setupSecurityHeaders();
+    });
 
     /* ---------- View-Wechsel ---------- */
     $("#toRegister").onclick = () => { 
@@ -156,80 +468,208 @@
         hide($("#registerView")); 
         show($("#loginView")); 
     }; 
+    
+    // Passwort ändern Abbrechen
+    $("#cancelPasswordChange").onclick = () => {
+        hide($("#changePasswordView"));
+        show($("#appView"));
+    };
+
+    /* ---------- Dropdown Settings Menu ---------- */
+    // Toggle dropdown
+    $("#settingsBtn").onclick = function() {
+        $("#settingsDropdown").classList.toggle("show");
+        
+        // Close the dropdown if user clicks outside of it
+        setTimeout(() => {
+            document.addEventListener("click", function closeDropdown(event) {
+                if (!$("#settingsBtn").contains(event.target) && !$("#settingsDropdown").contains(event.target)) {
+                    $("#settingsDropdown").classList.remove("show");
+                    document.removeEventListener("click", closeDropdown);
+                }
+            }, {once: true});
+        }, 0);
+    };
+    
+    // Passwort ändern Button
+    $("#changePasswordBtn").onclick = function() {
+        $("#settingsDropdown").classList.remove("show");
+        hide($("#appView"));
+        
+        // Formular vorbereiten
+        $("#cpUser").value = sanitizeInput(currentUser);
+        $("#cpOldCode").value = "";
+        $("#cpNewCode").value = "";
+        
+        show($("#changePasswordView"));
+    };
 
     /* ---------- Session ---------- */
     function startSession(name) { 
-        currentUser = name; 
-        $("#currentUserSpan").textContent = name; 
+        currentUser = sanitizeInput(name); 
+        $("#currentUserSpan").textContent = currentUser; 
+        
         hide($("#loginView")); 
         hide($("#registerView")); 
+        hide($("#changePasswordView"));
         show($("#appView")); 
+        
+        // Session speichern
+        saveSession();
         
         // Starte Abonnements direkt
         subscribeExpenses(); 
         subscribeQuickCats(); 
+        subscribeMonthlyLimits(); 
         
         const activeBtn = document.querySelector(`[data-range='${currentRange}']`);
         if (activeBtn) {
             activeBtn.classList.add("bg-blue-800");
         }
     } 
+    
+    // Prüfen, ob bereits angemeldet
+    document.addEventListener("DOMContentLoaded", function() {
+        const savedUser = loadSession();
+        if (savedUser) {
+            startSession(savedUser);
+        }
+    });
 
     /* ---------- LOGIN ---------- */
     $("#loginForm").addEventListener("submit", async e => { 
         e.preventDefault(); 
-        const user = $("#loginUser").value.trim().toLowerCase(); 
-        const code = $("#loginCode").value.trim(); 
-        if (!user || !/^\d{4}$/.test(code)) {
-            alert("Bitte gültige Daten eingeben.");
+        
+        if (!rateLimiter.canMakeCall('login')) {
+            alert("Zu viele Anmeldeversuche. Bitte warten Sie eine Minute.");
+            return;
+        }
+        
+        const user = validateUsername($("#loginUser").value.trim()); 
+        const code = validateCode($("#loginCode").value.trim()); 
+        
+        if (!user || !code) {
+            alert("Bitte gültige Daten eingeben (Benutzername: 3-20 Zeichen, nur Buchstaben, Zahlen und _).");
             return;
         } 
-        const doc = await db.collection(USERS).doc(user).get(); 
-        if (!doc.exists) {
-            alert("Benutzer nicht gefunden.");
-            return;
-        } 
-        if (doc.data().code !== code) {
-            alert("Falsches Passwort!");
-            return;
-        } 
-        startSession(user); 
+        
+        try {
+            const doc = await db.collection(USERS).doc(user).get(); 
+            if (!doc.exists) {
+                alert("Benutzer nicht gefunden.");
+                return;
+            } 
+            if (doc.data().code !== code) {
+                alert("Falsches Passwort!");
+                return;
+            } 
+            startSession(user);
+        } catch (error) {
+            console.error("Login-Fehler:", error);
+            alert("Anmeldefehler: " + error.message);
+        }
     }); 
 
     /* ---------- REGISTRIERUNG ---------- */
     $("#registerForm").addEventListener("submit", async e => { 
         e.preventDefault(); 
-        const user = $("#regUser").value.trim().toLowerCase(); 
-        const code = $("#regCode").value.trim(); 
-        if (!user || !/^\d{4}$/.test(code)) {
+        
+        if (!rateLimiter.canMakeCall('register')) {
+            alert("Zu viele Registrierungsversuche. Bitte warten Sie eine Minute.");
+            return;
+        }
+        
+        const user = validateUsername($("#regUser").value.trim()); 
+        const code = validateCode($("#regCode").value.trim()); 
+        
+        if (!user || !code) {
+            alert("Bitte gültige Daten eingeben (Benutzername: 3-20 Zeichen, nur Buchstaben, Zahlen und _).");
+            return;
+        } 
+        
+        try {
+            const ref = db.collection(USERS).doc(user); 
+            if ((await ref.get()).exists) {
+                alert("Benutzername existiert bereits.");
+                return;
+            } 
+            await ref.set({code}); 
+            alert("Registrierung erfolgreich!"); 
+            startSession(user);
+        } catch (error) {
+            console.error("Registrierungs-Fehler:", error);
+            alert("Registrierungsfehler: " + error.message);
+        }
+    }); 
+    
+    /* ---------- PASSWORT ÄNDERN ---------- */
+    $("#changePasswordForm").addEventListener("submit", async e => {
+        e.preventDefault();
+        
+        if (!rateLimiter.canMakeCall('changePassword')) {
+            alert("Zu viele Versuche. Bitte warten Sie eine Minute.");
+            return;
+        }
+        
+        const user = validateUsername($("#cpUser").value.trim());
+        const oldCode = validateCode($("#cpOldCode").value.trim());
+        const newCode = validateCode($("#cpNewCode").value.trim());
+        
+        if (!user || !oldCode || !newCode) {
             alert("Bitte gültige Daten eingeben.");
             return;
-        } 
-        const ref = db.collection(USERS).doc(user); 
-        if ((await ref.get()).exists) {
-            alert("Benutzername existiert bereits.");
-            return;
-        } 
-        await ref.set({code}); 
-        alert("Registrierung erfolgreich!"); 
-        startSession(user); 
-    }); 
+        }
+        
+        try {
+            const userRef = db.collection(USERS).doc(user);
+            const doc = await userRef.get();
+            
+            if (!doc.exists) {
+                alert("Benutzer nicht gefunden.");
+                return;
+            }
+            
+            if (doc.data().code !== oldCode) {
+                alert("Aktuelles Passwort ist falsch!");
+                return;
+            }
+            
+            // Update Passwort
+            await userRef.update({ code: newCode });
+            alert("Passwort erfolgreich geändert!");
+            
+            // Zurück zur App
+            hide($("#changePasswordView"));
+            show($("#appView"));
+        } catch (error) {
+            console.error("Fehler beim Ändern des Passworts:", error);
+            alert("Fehler beim Ändern des Passworts: " + error.message);
+        }
+    });
 
     /* ---------- LOGOUT ---------- */
-    $("#logoutBtn").onclick = () => { 
+    function logout() {
         if (unsubExp) unsubExp(); 
         if (unsubQC) unsubQC(); 
+        if (unsubLimits) unsubLimits();
+        clearSession();
         currentUser = null; 
         data = []; 
         quickCats = []; 
+        monthlyLimit = 0;
         selectedCat = null; 
         if (monthlyChart) monthlyChart.destroy(); 
         if (categoryChart) categoryChart.destroy(); 
+        if (monthlyComparisonChart) monthlyComparisonChart.destroy();
+        if (totalSavingsChart) totalSavingsChart.destroy();
         hide($("#appView")); 
+        hide($("#changePasswordView"));
         show($("#loginView")); 
         $("#loginForm").reset(); 
         currentRange = "current"; 
-    }; 
+    }
+    
+    $("#logoutBtn").onclick = logout;
 
     /* ---------- Firestore-Feeds ---------- */
     function subscribeExpenses() { 
@@ -238,25 +678,22 @@
         console.log("Starte Abonnement für Ausgaben");
         
         try {
-            // Vereinfachte Abfrage OHNE orderBy, um keinen Index zu benötigen
             unsubExp = db.collection(EXPENSES)
                 .where("user", "==", currentUser)
                 .onSnapshot(snap => { 
                     console.log("Neue Ausgabendaten erhalten:", snap.size, "Dokumente");
                     
-                    // Sortiere die Daten lokal im Client
                     data = snap.docs
                         .map(d => {
                             const docData = d.data();
                             return {
                                 id: d.id, 
-                                amount: parseFloat(docData.amount),
-                                category: docData.category,
-                                date: docData.date,
-                                user: docData.user
+                                amount: parseFloat(docData.amount) || 0,
+                                category: sanitizeInput(docData.category) || 'unbekannt',
+                                date: docData.date || new Date().toISOString(),
+                                user: sanitizeInput(docData.user) || currentUser
                             };
                         })
-                        // Sortiere Daten lokal statt auf dem Server
                         .sort((a, b) => b.date.localeCompare(a.date));
                     
                     console.log("Verarbeitete Daten:", data);
@@ -276,15 +713,21 @@
         console.log("Starte Abonnement für Kategorien");
         
         try {
-            // Vereinfachte Abfrage OHNE orderBy, um keinen Index zu benötigen
             unsubQC = db.collection(QUICK)
                 .where("user", "==", currentUser)
                 .onSnapshot(snap => { 
                     console.log("Neue Kategoriedaten erhalten:", snap.size, "Dokumente");
                     
-                    // Sortiere die Daten lokal im Client
                     quickCats = snap.docs
-                        .map(d => ({id: d.id, ...d.data()}))
+                        .map(d => {
+                            const docData = d.data();
+                            return {
+                                id: d.id, 
+                                cat: sanitizeInput(docData.cat) || 'unbekannt',
+                                icon: validateEmoji(docData.icon) || '📋',
+                                user: sanitizeInput(docData.user) || currentUser
+                            };
+                        })
                         .sort((a, b) => a.cat.localeCompare(b.cat)); 
                     
                     console.log("Verfügbare Kategorien:", quickCats);
@@ -298,340 +741,1072 @@
         }
     } 
 
-    /* ---------- Quick-Kategorie-Dialog ---------- */
-    function openCatDialog() { 
-        return new Promise(res => { 
-            const em = ["🍔","🍕","🍜","🍺","💡","🚌","🚆","✈️","🎮","🎁","👕","📚","🏥","🎵","🎬","🛒","🐶","🐱","💻","🏃‍♂️","⚽️","🚗","🏠","📱","☕️","💳","🩺"]; 
-            const back = document.createElement("div");
-            back.className = "fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"; 
-            
-            const box = document.createElement("div"); 
-            box.className = "bg-white rounded-lg shadow-lg p-6 w-80"; 
-            box.innerHTML = `<h2 class="text-lg font-semibold mb-4 text-center">Neue Kategorie</h2> 
-            <input id="catName" class="w-full border p-2 rounded mb-3" placeholder="Name"/> 
-            <div id="grid" class="grid grid-cols-6 gap-2 mb-3 max-h-40 overflow-y-auto"></div> 
-            <button id="save" disabled class="w-full bg-blue-600 text-white py-2 rounded font-semibold opacity-50">Speichern</button>`; 
-            
-            back.appendChild(box); 
-            document.body.appendChild(back); 
-            
-            const grid = box.querySelector("#grid"); 
-            let icon = null; 
-            
-            em.forEach(e => { 
-                const b = document.createElement("button");
-                b.type = "button";
-                b.textContent = e; 
-                b.className = "text-2xl border rounded hover:bg-blue-100"; 
-                b.onclick = () => {
-                    icon = e;
-                    grid.querySelectorAll("button").forEach(x => x.classList.remove("ring", "ring-blue-400"));
-                    b.classList.add("ring", "ring-blue-400");
-                    chk();
-                }; 
-                grid.appendChild(b); 
-            }); 
-            
-            const nameIn = box.querySelector("#catName"); 
-            nameIn.oninput = chk; 
-            
-            function chk() {
-                const ok = nameIn.value.trim() && icon;
-                const btn = box.querySelector("#save");
-                btn.disabled = !ok;
-                btn.style.opacity = ok ? "1" : ".5";
-            } 
-            
-            box.querySelector("#save").onclick = () => {
-                res({cat: nameIn.value.trim().toLowerCase(), icon});
-                back.remove();
-            }; 
-            
-            back.onclick = e => {
-                if (e.target === back) {
-                    back.remove();
-                    res(null);
-                }
-            }; 
-        }); 
-    } 
-
-    /* ---------- Quick-Kategorie-Rendering ---------- */
-    function renderQuickCats() { 
-        const box = $("#quickCategories"); 
-        box.innerHTML = ""; 
+    function subscribeMonthlyLimits() {
+        if (unsubLimits) unsubLimits();
         
-        quickCats.forEach(q => { 
-            const btn = document.createElement("button"); 
-            btn.type = "button"; 
-            btn.className = `relative px-3 py-1 rounded text-xl text-white ${selectedCat === q.cat ? "ring-2 ring-offset-2 ring-blue-500" : ""} bg-blue-600 hover:bg-blue-700`; 
-            btn.textContent = q.icon; 
-            btn.title = q.cat; 
-            btn.onclick = () => {
-                selectedCat = q.cat;
-                $("#catWarning").classList.add("hidden");
-                renderQuickCats();
-            }; 
-            btn.oncontextmenu = e => {
-                e.preventDefault();
-                showCatMenu(e, q);
-            }; 
-            box.appendChild(btn); 
-        }); 
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
         
-        const plus = document.createElement("button"); 
-        plus.type = "button";
-        plus.textContent = "+";
-        plus.className = "bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded font-bold"; 
-        plus.onclick = async () => {
-            const d = await openCatDialog();
-            if (d) {
-                if (quickCats.some(c => c.cat === d.cat)) {
-                    alert("Kategorie existiert bereits.");
-                } else {
-                    try {
-                        await db.collection(QUICK).add({...d, user: currentUser});
-                        console.log("Kategorie erfolgreich hinzugefügt:", d);
-                    } catch (error) {
-                        console.error("Fehler beim Hinzufügen der Kategorie:", error);
-                        alert("Fehler beim Hinzufügen der Kategorie: " + error.message);
+        try {
+            unsubLimits = db.collection(LIMITS)
+                .where("user", "==", currentUser)
+                .where("year", "==", currentYear)
+                .where("month", "==", currentMonth)
+                .onSnapshot(snap => {
+                    if (snap.docs.length > 0) {
+                        monthlyLimit = validateNumber(snap.docs[0].data().limit) || 0;
+                    } else {
+                        monthlyLimit = 0;
                     }
-                }
-            }
-        }; 
-        box.appendChild(plus); 
-    } 
+                    $("#limitInput").value = monthlyLimit > 0 ? monthlyLimit.toFixed(2) : '';
+                    refreshAll();
+                }, error => {
+                    console.error("Fehler beim Abrufen der Limits:", error);
+                });
+        } catch (error) {
+            console.error("Fehler beim Einrichten des Limit-Listeners:", error);
+        }
+    }
 
-    /* ---------- Kontext-Menü ---------- */
-    let ctx = null; 
-    function showCatMenu(ev, q) { 
-        if (ctx) ctx.remove(); 
-        ctx = document.createElement("div");
-        ctx.className = "context-menu"; 
-        ctx.style.top = ev.clientY + "px";
-        ctx.style.left = ev.clientX + "px";
-        ctx.textContent = "Kategorie löschen"; 
-        ctx.onclick = async () => {
-            if (confirm(`"${q.cat}" löschen?`)) {
-                await db.collection(QUICK).doc(q.id).delete();
-                if (selectedCat === q.cat) selectedCat = null;
-            }
-            ctx.remove();
-            ctx = null;
-        }; 
-        document.body.appendChild(ctx); 
-        
-        setTimeout(() => {
-            document.addEventListener("click", () => {
-                if (ctx) {
-                    ctx.remove();
-                    ctx = null;
-                }
-            }, {once: true});
-        }, 0); 
-    } 
-
-    /* ---------- Expense-Form ---------- */
-    $("#expenseForm").addEventListener("submit", async e => { 
-        e.preventDefault(); 
-        const amountInput = $("#amount");
-        const amt = parseFloat(amountInput.value); 
-        
-        if (!selectedCat) {
-            $("#catWarning").classList.remove("hidden");
+    /* ---------- Ausgabenlimit speichern ---------- */
+    $("#saveLimitBtn").onclick = async () => {
+        if (!rateLimiter.canMakeCall('saveLimit')) {
+            alert("Zu viele Versuche. Bitte warten Sie eine Minute.");
             return;
-        } 
+        }
         
-        if (isNaN(amt) || amt <= 0) {
+        const limitValue = validateNumber($("#limitInput").value.trim());
+        if (limitValue === null) {
             alert("Bitte geben Sie einen gültigen Betrag ein.");
             return;
         }
         
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+        
         try {
-            // Stelle sicher, dass die Daten korrekt formatiert sind
-            const expenseData = {
-                amount: amt,
-                category: selectedCat,
-                date: new Date().toISOString(),
-                user: currentUser
+            const limitRef = db.collection(LIMITS).doc(`${currentUser}_${currentYear}_${currentMonth}`);
+            await limitRef.set({
+                user: currentUser,
+                year: currentYear,
+                month: currentMonth,
+                limit: limitValue
+            });
+            
+            monthlyLimit = limitValue;
+            alert("Budget erfolgreich gespeichert!");
+            refreshAll();
+        } catch (error) {
+            console.error("Fehler beim Speichern des Budgets:", error);
+            alert("Fehler beim Speichern des Budgets: " + error.message);
+        }
+    };
+
+ /* ---------- Kategorien rendern ---------- */
+function renderQuickCats() {
+  const container = $("#quickCategories");
+  container.innerHTML = "";
+  quickCats.forEach(q => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm";
+    
+    // Icon und Text sicher hinzufügen
+    const iconSpan = document.createElement("span");
+    iconSpan.className = "emoji-icon mr-1";
+    iconSpan.textContent = q.icon;
+    
+    // Emoji-Ändern Button (kleiner Button auf dem Icon)
+    iconSpan.onclick = (e) => {
+      e.stopPropagation();
+      showEmojiSelector((selectedEmoji) => {
+        q.icon = selectedEmoji;
+        renderQuickCats();
+      });
+    };
+    iconSpan.style.cursor = "pointer";
+    iconSpan.title = "Emoji ändern";
+    
+    const textSpan = document.createElement("span");
+    textSpan.textContent = q.cat;
+    
+    btn.appendChild(iconSpan);
+    btn.appendChild(textSpan);
+    btn.onclick = () => selectCategory(q.cat);
+    
+    // Context Menu für Löschen
+    btn.oncontextmenu = e => {
+      e.preventDefault();
+      showCatContextMenu(e, q);
+    };
+    
+    container.appendChild(btn);
+  });
+}
+// Emoji-Auswahl Array
+    const availableEmojis = [
+        "📝", "💼", "🏠", "🛒", "🍔", "🚗", "💰", "🎮", "📚", "💊",
+        "🏃", "👥", "📞", "✈️", "🎵", "📸", "🔧", "💻", "🎨", "🌟",
+        "❤️", "⚡", "🔥", "✅", "❌", "⚠️", "📅", "🎯", "🔔", "⭐"
+    ];
+
+    /* ---------- Neue Kategorie Modal ---------- */
+    function showNewCategoryModal() {
+        const modal = document.createElement("div");
+        modal.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
+        modal.onclick = (e) => {
+            if (e.target === modal) closeNewCategoryModal();
+        };
+
+        const modalContent = document.createElement("div");
+        modalContent.className = "bg-white rounded-lg p-6 max-w-md w-full mx-4";
+
+        const title = document.createElement("h3");
+        title.className = "text-lg font-semibold mb-4 text-center";
+        title.textContent = "Neue Kategorie erstellen";
+
+        // Name Input
+        const nameLabel = document.createElement("label");
+        nameLabel.className = "block text-sm font-medium mb-2";
+        nameLabel.textContent = "Kategorie-Name:";
+
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.className = "w-full px-3 py-2 border border-gray-300 rounded mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500";
+        nameInput.placeholder = "Name der Kategorie eingeben...";
+        nameInput.maxLength = 50;
+
+        // Emoji Selection
+        const emojiLabel = document.createElement("label");
+        emojiLabel.className = "block text-sm font-medium mb-2";
+        emojiLabel.textContent = "Emoji auswählen:";
+
+        const emojiGrid = document.createElement("div");
+        emojiGrid.className = "grid grid-cols-6 gap-2 mb-4 max-h-48 overflow-y-auto border border-gray-200 rounded p-2";
+
+        let selectedEmoji = "📋"; // Default Emoji
+
+        availableEmojis.forEach(emoji => {
+            const emojiBtn = document.createElement("button");
+            emojiBtn.type = "button";
+            emojiBtn.className = "w-8 h-8 text-xl hover:bg-gray-100 rounded transition-colors";
+            emojiBtn.textContent = emoji;
+            
+            if (emoji === selectedEmoji) {
+                emojiBtn.classList.add("bg-blue-200");
+            }
+            
+            emojiBtn.onclick = () => {
+                // Alle anderen Buttons deselektieren
+                emojiGrid.querySelectorAll("button").forEach(btn => {
+                    btn.classList.remove("bg-blue-200");
+                });
+                // Aktuellen Button selektieren
+                emojiBtn.classList.add("bg-blue-200");
+                selectedEmoji = emoji;
             };
+            emojiGrid.appendChild(emojiBtn);
+        });
+
+        // Buttons
+        const buttonContainer = document.createElement("div");
+        buttonContainer.className = "flex gap-2";
+
+        const cancelBtn = document.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.className = "flex-1 px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded text-sm";
+        cancelBtn.textContent = "Abbrechen";
+        cancelBtn.onclick = closeNewCategoryModal;
+
+        const createBtn = document.createElement("button");
+        createBtn.type = "button";
+        createBtn.className = "flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm";
+        createBtn.textContent = "Erstellen";
+        createBtn.onclick = () => {
+            const categoryName = nameInput.value.trim();
+            if (!categoryName) {
+                alert("Bitte geben Sie einen Kategorie-Namen ein.");
+                nameInput.focus();
+                return;
+            }
+
+            const validCat = validateCategory(categoryName);
+            if (!validCat) {
+                alert("Bitte geben Sie eine gültige Kategorie ein (1-50 Zeichen, nur Buchstaben, Zahlen, Leerzeichen).");
+                nameInput.focus();
+                return;
+            }
+
+            const validIcon = validateEmoji(selectedEmoji);
             
-            console.log("Versuche Ausgabe zu speichern:", expenseData);
+            if (!rateLimiter.canMakeCall('addCategory')) {
+                alert("Zu viele Versuche. Bitte warten Sie eine Minute.");
+                return;
+            }
             
-            // Ausgabe speichern
-            const docRef = await db.collection(EXPENSES).add(expenseData); 
-            console.log("Ausgabe gespeichert mit ID:", docRef.id);
+            db.collection(QUICK).add({ 
+                cat: validCat, 
+                icon: validIcon, 
+                user: currentUser 
+            }).then(() => {
+                closeNewCategoryModal();
+            }).catch(error => {
+                console.error("Fehler beim Hinzufügen der Kategorie:", error);
+                alert("Fehler beim Hinzufügen der Kategorie: " + error.message);
+            });
+        };
+
+        buttonContainer.appendChild(cancelBtn);
+        buttonContainer.appendChild(createBtn);
+
+        modalContent.appendChild(title);
+        modalContent.appendChild(nameLabel);
+        modalContent.appendChild(nameInput);
+        modalContent.appendChild(emojiLabel);
+        modalContent.appendChild(emojiGrid);
+        modalContent.appendChild(buttonContainer);
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+
+        // Input fokussieren
+        setTimeout(() => nameInput.focus(), 100);
+
+        window.currentNewCategoryModal = modal;
+    }
+
+    function closeNewCategoryModal() {
+        if (window.currentNewCategoryModal) {
+            document.body.removeChild(window.currentNewCategoryModal);
+            window.currentNewCategoryModal = null;
+        }
+    }
+
+    /* ---------- Kategorien rendern ---------- */
+    function renderQuickCats() { 
+        const container = $("#quickCategories"); 
+        container.innerHTML = ""; 
+        
+        quickCats.forEach(q => { 
+            const btn = document.createElement("button"); 
+            btn.type = "button"; 
+            btn.className = "px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm"; 
             
-            // Formular zurücksetzen
-            $("#expenseForm").reset();
-            selectedCat = null;
-            renderQuickCats();
-            console.log("Ausgabe erfolgreich hinzugefügt");
+            // Icon und Text sicher hinzufügen
+            const iconSpan = document.createElement("span");
+            iconSpan.className = "emoji-icon mr-1";
+            iconSpan.textContent = q.icon;
+            
+            const textSpan = document.createElement("span");
+            textSpan.textContent = q.cat;
+            
+            btn.appendChild(iconSpan);
+            btn.appendChild(textSpan);
+            
+            btn.onclick = () => selectCategory(q.cat); 
+            
+            // Context Menu für Löschen
+            btn.oncontextmenu = e => { 
+                e.preventDefault(); 
+                showCatContextMenu(e, q); 
+            }; 
+            
+            container.appendChild(btn); 
+        }); 
+        
+        // Button für neue Kategorie
+        const addBtn = document.createElement("button"); 
+        addBtn.type = "button"; 
+        addBtn.className = "px-3 py-2 bg-blue-200 hover:bg-blue-300 rounded text-sm"; 
+        addBtn.textContent = "+ Neue Kategorie"; 
+        addBtn.onclick = addNewCategory; 
+        container.appendChild(addBtn); 
+    }
+
+    function selectCategory(cat) { 
+        selectedCat = sanitizeInput(cat); 
+        $("#catWarning").classList.add("hidden"); 
+        
+        // Visuelle Hervorhebung
+        $("#quickCategories button").forEach(b => b.classList.remove("bg-blue-500", "text-white")); 
+        const btn = Array.from($("#quickCategories button")).find(b => b.textContent.includes(cat)); 
+        if (btn) { 
+            btn.classList.add("bg-blue-500", "text-white"); 
+        } 
+    }
+
+    function addNewCategory() { 
+        showNewCategoryModal();
+    }
+
+    function showCatContextMenu(e, q) { 
+        const menu = document.createElement("div"); 
+        menu.className = "context-menu"; 
+        menu.style.left = e.pageX + "px"; 
+        menu.style.top = e.pageY + "px"; 
+        menu.innerHTML = `<div onclick="deleteCat('${q.id}')">🗑️ Löschen</div>`; 
+        document.body.appendChild(menu); 
+        
+        setTimeout(() => {
+            document.addEventListener("click", function removeMenu() {
+                if (menu.parentNode) menu.parentNode.removeChild(menu);
+                document.removeEventListener("click", removeMenu);
+            }, {once: true});
+        }, 0);
+    }
+
+    function deleteCat(id) { 
+        if (!confirm("Kategorie löschen?")) return; 
+        
+        if (!rateLimiter.canMakeCall('deleteCategory')) {
+            alert("Zu viele Versuche. Bitte warten Sie eine Minute.");
+            return;
+        }
+        
+        db.collection(QUICK).doc(id).delete().catch(error => {
+            console.error("Fehler beim Löschen der Kategorie:", error);
+            alert("Fehler beim Löschen der Kategorie: " + error.message);
+        }); 
+    }
+
+    /* ---------- Ausgaben hinzufügen ---------- */
+    $("#expenseForm").addEventListener("submit", async e => { 
+        e.preventDefault(); 
+        
+        if (!rateLimiter.canMakeCall('addExpense')) {
+            alert("Zu viele Versuche. Bitte warten Sie eine Minute.");
+            return;
+        }
+        
+        const amount = validateNumber($("#amount").value.trim()); 
+        if (amount === null || amount <= 0) {
+            alert("Bitte geben Sie einen gültigen Betrag ein.");
+            return;
+        } 
+        
+        if (!selectedCat) { 
+            $("#catWarning").classList.remove("hidden"); 
+            return; 
+        } 
+        
+        try {
+            await db.collection(EXPENSES).add({ 
+                amount: amount, 
+                category: selectedCat, 
+                date: new Date().toISOString(), 
+                user: currentUser 
+            }); 
+            
+            $("#amount").value = ""; 
+            selectedCat = null; 
+            $("#catWarning").classList.add("hidden"); 
+            
+            // Kategorie-Auswahl zurücksetzen
+            $("#quickCategories button").forEach(b => b.classList.remove("bg-blue-500", "text-white")); 
         } catch (error) {
             console.error("Fehler beim Hinzufügen der Ausgabe:", error);
-            alert("Fehler beim Speichern: " + error.message);
+            alert("Fehler beim Hinzufügen der Ausgabe: " + error.message);
         }
-    }); 
+    });
 
-    /* ---------- Filter / Range ---------- */
-    $("#filterInput").oninput = refreshAll; 
-    
-    $$(".range-btn").forEach(b => 
-        b.onclick = () => {
-            currentRange = b.dataset.range;
-            $$(".range-btn").forEach(x => x.classList.remove("bg-blue-800"));
-            b.classList.add("bg-blue-800");
-            refreshAll();
+    /* ---------- Einträge löschen ---------- */
+    function deleteEntry(id) { 
+        if (!confirm("Eintrag löschen?")) return; 
+        
+        if (!rateLimiter.canMakeCall('deleteExpense')) {
+            alert("Zu viele Versuche. Bitte warten Sie eine Minute.");
+            return;
         }
-    ); 
+        
+        db.collection(EXPENSES).doc(id).delete().catch(error => {
+            console.error("Fehler beim Löschen des Eintrags:", error);
+            alert("Fehler beim Löschen des Eintrags: " + error.message);
+        }); 
+    }
 
-    /* ---------- Render-Funktionen ---------- */
-    function filtered() {
-        const f = $("#filterInput").value.toLowerCase();
+    /* ---------- Filter ---------- */
+    $("#filterInput").addEventListener("input", refreshAll);
+
+    function getFilteredData() { 
+        const filter = $("#filterInput").value.toLowerCase().trim(); 
+        let filtered = data; 
+        
+        if (filter) { 
+            filtered = data.filter(d => d.category.toLowerCase().includes(filter)); 
+        } 
+        
+        // Nach Zeitraum filtern
         const now = new Date(); 
+        const currentYear = now.getFullYear(); 
+        const currentMonth = now.getMonth(); 
         
-        return data.filter(e => { 
-            if (!e.category.toLowerCase().includes(f)) return false; 
-            
-            const d = new Date(e.date); 
-            if (currentRange === "current") {
-                return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-            }
-            if (currentRange === "last") {
-                const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
-            } 
-            return true;
-        }); 
-    } 
-
-    const months = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"]; 
-    
-    function renderEntries(list) { 
-        const ul = $("#entries");
-        ul.innerHTML = "";
-        
-        [...list].forEach(e => { 
-            const li = document.createElement("li");
-            li.className = "flex justify-between items-center bg-white p-3 rounded shadow"; 
-            li.innerHTML = `<div><span>${new Date(e.date).toLocaleDateString("de-DE")} — ${e.category}</span>
-                <span class="block text-sm text-gray-500">${e.amount.toFixed(2)} €</span></div>
-                <button class="text-red-500 hover:text-red-700 font-bold" data-id="${e.id}">✕</button>`; 
-            ul.appendChild(li);
-        }); 
-        
-        ul.querySelectorAll("button[data-id]").forEach(b => 
-            b.onclick = () => db.collection(EXPENSES).doc(b.dataset.id).delete()
-        ); 
-    } 
-
-    function renderSummary(list) { 
-        const ul = $("#summary");
-        ul.innerHTML = "";
-        const sums = {};
-        
-        list.forEach(e => sums[e.category] = (sums[e.category] || 0) + e.amount); 
-        
-        Object.entries(sums).forEach(([c, s]) => {
-            const li = document.createElement("li");
-            li.className = "flex justify-between bg-white p-3 rounded shadow";
-            li.innerHTML = `<span>${c}</span><span>${s.toFixed(2)} €</span>`;
-            ul.appendChild(li);
-        }); 
-        
-        const total = list.reduce((a, e) => a + e.amount, 0); 
-        const li = document.createElement("li");
-        li.className = "flex justify-between font-bold bg-gray-200 p-3 rounded";
-        li.innerHTML = `<span>Gesamt</span><span>${total.toFixed(2)} €</span>`;
-        ul.appendChild(li); 
-    } 
-
-    function renderMonthList(list) { 
-        const ul = $("#monthList");
-        ul.innerHTML = "";
-        const sums = {};
-        
-        list.forEach(e => {
-            const d = new Date(e.date);
-            const k = `${d.getFullYear()}-${d.getMonth()}`;
-            sums[k] = (sums[k] || 0) + e.amount;
-        }); 
-        
-        Object.entries(sums)
-            .sort((a, b) => b[0].localeCompare(a[0]))
-            .forEach(([k, s]) => {
-                const [y, m] = k.split("-").map(Number);
-                const li = document.createElement("li");
-                li.className = "flex justify-between bg-white p-3 rounded shadow";
-                li.innerHTML = `<span>${months[m]} ${y}</span><span>${s.toFixed(2)} €</span>`;
-                ul.appendChild(li);
+        if (currentRange === "current") { 
+            filtered = filtered.filter(d => { 
+                const date = new Date(d.date); 
+                return date.getFullYear() === currentYear && date.getMonth() === currentMonth; 
             }); 
-    } 
-
-    function renderCharts(list) { 
-        /* Monatschart */
-        const mSum = {};
+        } else if (currentRange === "last") { 
+            const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1; 
+            const lastYear = currentMonth === 0 ? currentYear - 1 : currentYear; 
+            filtered = filtered.filter(d => { 
+                const date = new Date(d.date); 
+                return date.getFullYear() === lastYear && date.getMonth() === lastMonth; 
+            }); 
+        } 
         
-        list.forEach(e => {
-            const d = new Date(e.date);
-            const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-            mSum[k] = (mSum[k] || 0) + e.amount;
+        return filtered; 
+    }
+
+    /* ---------- Range-Buttons ---------- */
+    $(".range-btn").forEach(btn => { 
+        btn.onclick = () => { 
+            currentRange = btn.dataset.range; 
+            $(".range-btn").forEach(b => b.classList.remove("bg-blue-800")); 
+            btn.classList.add("bg-blue-800"); 
+            refreshAll(); 
+        }; 
+    });
+
+    /* ---------- Einträge anzeigen ---------- */
+    function refreshEntries() { 
+        const list = $("#entries"); 
+        list.innerHTML = ""; 
+        
+        const filtered = getFilteredData(); 
+        if (filtered.length === 0) {
+            const noDataItem = document.createElement("li");
+            noDataItem.className = "text-gray-500 italic";
+            noDataItem.textContent = "Keine Einträge vorhanden";
+            list.appendChild(noDataItem);
+            return;
+        }
+        
+        // Nach Datum gruppieren
+        const groups = {};
+        filtered.forEach(e => {
+            const date = new Date(e.date);
+            const dateStr = `${date.getDate().toString().padStart(2, '0')}.${(date.getMonth()+1).toString().padStart(2, '0')}.${date.getFullYear()}`;
+            if (!groups[dateStr]) groups[dateStr] = [];
+            groups[dateStr].push(e);
+        });
+        
+        // Nach Datum sortieren (neueste zuerst)
+        const sortedDates = Object.keys(groups).sort((a, b) => {
+            const [dayA, monthA, yearA] = a.split('.').map(Number);
+            const [dayB, monthB, yearB] = b.split('.').map(Number);
+            const dateA = new Date(yearA, monthA - 1, dayA);
+            const dateB = new Date(yearB, monthB - 1, dayB);
+            return dateB - dateA;
+        });
+        
+        // Einträge nach Datum gruppiert anzeigen
+        sortedDates.forEach(dateStr => {
+            const entries = groups[dateStr];
+            
+            // Datums-Header
+            const dateHeader = document.createElement("li");
+            dateHeader.className = "font-medium text-gray-600 pt-2";
+            dateHeader.textContent = sanitizeHTML(dateStr);
+            list.appendChild(dateHeader);
+            
+            // Einträge für dieses Datum
+            entries.forEach(e => {
+                const item = document.createElement("li");
+                item.className = "bg-white p-3 rounded shadow";
+                
+                // Kategorie-Icon finden
+                const catObj = quickCats.find(q => q.cat === e.category);
+                const icon = catObj ? catObj.icon : "📋";
+                
+                // Container für Entry-Inhalt
+                const entryContent = document.createElement("div");
+                entryContent.className = "flex justify-between items-center";
+                
+                // Linke Seite mit Icon und Kategorie
+                const leftSide = document.createElement("div");
+                leftSide.className = "flex items-center";
+                
+                const iconSpan = document.createElement("span");
+                iconSpan.className = "mr-2 emoji-icon";
+                iconSpan.textContent = icon;
+                
+                const categorySpan = document.createElement("span");
+                categorySpan.className = "font-medium";
+                categorySpan.textContent = sanitizeHTML(e.category);
+                
+                leftSide.appendChild(iconSpan);
+                leftSide.appendChild(categorySpan);
+                
+                // Rechte Seite mit Betrag
+                const rightSide = document.createElement("span");
+                rightSide.className = "font-bold";
+                rightSide.textContent = `${e.amount.toFixed(2)} €`;
+                
+                entryContent.appendChild(leftSide);
+                entryContent.appendChild(rightSide);
+                
+                // Delete-Button Container
+                const buttonContainer = document.createElement("div");
+                buttonContainer.className = "flex justify-end mt-2";
+                
+                const deleteButton = document.createElement("button");
+                deleteButton.className = "text-xs text-red-500 hover:text-red-700";
+                deleteButton.textContent = "Löschen";
+                deleteButton.onclick = () => deleteEntry(e.id);
+                
+                buttonContainer.appendChild(deleteButton);
+                
+                item.appendChild(entryContent);
+                item.appendChild(buttonContainer);
+                
+                list.appendChild(item);
+            });
+        });
+    }
+
+    /* ---------- Übersicht aktualisieren ---------- */
+    function refreshSummary() { 
+        const list = $("#summary"); 
+        list.innerHTML = ""; 
+        
+        const filtered = getFilteredData(); 
+        const categories = {}; 
+        let total = 0; 
+        
+        filtered.forEach(e => { 
+            if (!categories[e.category]) categories[e.category] = 0; 
+            categories[e.category] += e.amount; 
+            total += e.amount; 
         }); 
         
-        const mLab = Object.keys(mSum).sort();
-        const mVal = mLab.map(l => mSum[l]); 
+        // Gesamt
+        const totalItem = document.createElement("li"); 
+        totalItem.className = "bg-blue-100 p-3 rounded shadow font-bold"; 
+        totalItem.innerHTML = `
+            <div class="flex justify-between">
+                <span>📊 Gesamt</span>
+                <span>${total.toFixed(2)} €</span>
+            </div>
+        `; 
+        list.appendChild(totalItem); 
         
-        if (monthlyChart) monthlyChart.destroy(); 
-        monthlyChart = new Chart($("#monthlyChart"), {
-            type: "line",
+        // Budget-Anzeige aktualisieren
+        updateBudgetDisplay(total);
+        
+        // Nach Betrag sortieren
+        const sortedCats = Object.entries(categories).sort((a, b) => b[1] - a[1]); 
+        
+        sortedCats.forEach(([cat, sum]) => { 
+            const item = document.createElement("li"); 
+            item.className = "bg-white p-3 rounded shadow"; 
+            
+            // Icon finden
+            const catObj = quickCats.find(q => q.cat === cat);
+            const icon = catObj ? catObj.icon : "📋";
+            
+            item.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center">
+                        <span class="mr-2 emoji-icon">${icon}</span>
+                        <span>${sanitizeHTML(cat)}</span>
+                    </div>
+                    <span class="font-semibold">${sum.toFixed(2)} €</span>
+                </div>
+            `; 
+            list.appendChild(item); 
+        }); 
+    }
+    
+    /* ---------- Budget-Anzeige aktualisieren ---------- */
+    function updateBudgetDisplay(currentSpent) {
+        const limitProgress = $("#limitProgress");
+        const savingsDisplay = $("#savingsDisplay");
+        
+        if (monthlyLimit > 0) {
+            show(limitProgress);
+            show(savingsDisplay);
+            
+            const percentage = Math.min((currentSpent / monthlyLimit) * 100, 100);
+            const remaining = monthlyLimit - currentSpent;
+            
+            $("#limitText").textContent = `${currentSpent.toFixed(2)} € / ${monthlyLimit.toFixed(2)} €`;
+            $("#limitBar").style.width = `${percentage}%`;
+            
+            if (percentage > 100) {
+                $("#limitBar").classList.add("over-limit");
+                $("#savingsAmount").textContent = `${Math.abs(remaining).toFixed(2)} € Überschreitung`;
+                $("#savingsAmount").className = "text-lg font-bold text-red-600";
+            } else {
+                $("#limitBar").classList.remove("over-limit");
+                $("#savingsAmount").textContent = `${remaining.toFixed(2)} €`;
+                $("#savingsAmount").className = "text-lg font-bold text-green-600";
+            }
+        } else {
+            hide(limitProgress);
+            hide(savingsDisplay);
+        }
+    }
+
+    /* ---------- Monatsübersicht ---------- */
+    function refreshMonthList() { 
+        const list = $("#monthList"); 
+        list.innerHTML = ""; 
+        
+        const months = {}; 
+        data.forEach(e => { 
+            const date = new Date(e.date); 
+            const key = `${date.getFullYear()}-${date.getMonth()}`; 
+            const label = `${date.toLocaleDateString('de-DE', {month: 'long', year: 'numeric'})}`; 
+            if (!months[key]) months[key] = {label, sum: 0}; 
+            months[key].sum += e.amount; 
+        }); 
+        
+        Object.values(months)
+            .sort((a, b) => b.label.localeCompare(a.label)) 
+            .forEach(m => { 
+                const item = document.createElement("li"); 
+                item.className = "bg-white p-2 rounded shadow text-sm"; 
+                item.innerHTML = `
+                    <div class="flex justify-between">
+                        <span>${sanitizeHTML(m.label)}</span>
+                        <span class="font-semibold">${m.sum.toFixed(2)} €</span>
+                    </div>
+                `; 
+                list.appendChild(item); 
+            }); 
+    }
+
+    /* ---------- Charts ---------- */
+    function updateMonthlyChart() { 
+        const ctx = $("#monthlyChart");
+        if (!ctx) return;
+        
+        const context = ctx.getContext("2d");
+        if (monthlyChart) monthlyChart.destroy();
+        
+        // Daten für den aktuellen und vorherigen Monat sammeln
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+        
+        // Tage im aktuellen Monat
+        const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+        
+        // Daten-Arrays initialisieren
+        const days = Array.from({length: daysInMonth}, (_, i) => i + 1);
+        const currentMonthData = Array(daysInMonth).fill(0);
+        const lastMonthData = Array(daysInMonth).fill(0);
+        
+        // Aktueller Monat
+        data.filter(d => {
+            const date = new Date(d.date);
+            return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
+        }).forEach(d => {
+            const date = new Date(d.date);
+            const day = date.getDate() - 1; // 0-basierter Index
+            if (day >= 0 && day < daysInMonth) {
+                currentMonthData[day] += d.amount;
+            }
+        });
+        
+        // Vormonat
+        const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+        const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+        const daysInLastMonth = new Date(lastMonthYear, lastMonth + 1, 0).getDate();
+        
+        // Vormonatsdaten auf aktuellen Monat mappen
+        data.filter(d => {
+            const date = new Date(d.date);
+            return date.getFullYear() === lastMonthYear && date.getMonth() === lastMonth;
+        }).forEach(d => {
+            const date = new Date(d.date);
+            const day = date.getDate() - 1;
+            // Proportional auf aktuellen Monat mappen
+            const mappedDay = Math.floor((day / daysInLastMonth) * daysInMonth);
+            if (mappedDay >= 0 && mappedDay < daysInMonth) {
+                lastMonthData[mappedDay] += d.amount;
+            }
+        });
+        
+        monthlyChart = new Chart(context, {
+            type: 'line',
             data: {
-                labels: mLab,
+                labels: days,
                 datasets: [{
-                    label: "Gesamt (€)",
-                    data: mVal,
-                    fill: true,
-                    backgroundColor: "rgba(59,130,246,.25)",
-                    borderColor: "rgba(59,130,246,1)",
-                    tension: .3
+                    label: 'Aktueller Monat',
+                    data: currentMonthData,
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.1
+                }, {
+                    label: 'Vormonat',
+                    data: lastMonthData,
+                    borderColor: 'rgb(156, 163, 175)',
+                    backgroundColor: 'rgba(156, 163, 175, 0.1)',
+                    tension: 0.1
                 }]
             },
             options: {
                 responsive: true,
-                scales: {y: {beginAtZero: true}}
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toFixed(2) + ' €';
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' €';
+                            }
+                        }
+                    }
+                }
             }
+        });
+    }
+
+    function updateCategoryChart() { 
+        const ctx = $("#categoryChart");
+        if (!ctx) return;
+        
+        const context = ctx.getContext("2d");
+        if (categoryChart) categoryChart.destroy();
+        
+        const filtered = getFilteredData(); 
+        const categories = {}; 
+        
+        filtered.forEach(e => { 
+            if (!categories[e.category]) categories[e.category] = 0; 
+            categories[e.category] += e.amount; 
         }); 
         
-        /* Kategorie-Pie */
-        const cSum = {};
-        list.forEach(e => cSum[e.category] = (cSum[e.category] || 0) + e.amount); 
+        const sortedEntries = Object.entries(categories).sort((a, b) => b[1] - a[1]);
+        const labels = sortedEntries.map(([cat]) => cat);
+        const values = sortedEntries.map(([, sum]) => sum);
         
-        const cLab = Object.keys(cSum);
-        const cVal = cLab.map(l => cSum[l]); 
+        const colors = [
+            'rgba(239, 68, 68, 0.8)',   // red
+            'rgba(59, 130, 246, 0.8)',  // blue
+            'rgba(34, 197, 94, 0.8)',   // green
+            'rgba(234, 179, 8, 0.8)',   // yellow
+            'rgba(168, 85, 247, 0.8)',  // purple
+            'rgba(236, 72, 153, 0.8)',  // pink
+            'rgba(20, 184, 166, 0.8)',  // teal
+            'rgba(249, 115, 22, 0.8)',  // orange
+        ];
         
-        if (categoryChart) categoryChart.destroy(); 
-        categoryChart = new Chart($("#categoryChart"), {
-            type: "pie",
+        categoryChart = new Chart(context, {
+            type: 'doughnut',
             data: {
-                labels: cLab,
+                labels: labels,
                 datasets: [{
-                    data: cVal,
-                    backgroundColor: cLab.map((_, i) => `hsl(${i*360/cLab.length},70%,70%)`)
+                    data: values,
+                    backgroundColor: colors.slice(0, labels.length),
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
                 }]
             },
             options: {
                 responsive: true,
-                plugins: {legend: {position: "bottom"}}
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: ${value.toFixed(2)} € (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
             }
-        }); 
-    } 
+        });
+    }
 
-    function refreshAll() {
-        const list = filtered();
-        renderEntries(list);
-        renderSummary(list);
-        renderMonthList(list);
-        renderCharts(list);
-    } 
-    </script> 
-</body> 
+    function updateMonthlyComparisonChart() {
+        const ctx = $("#monthlyComparisonChart");
+        if (!ctx) return;
+        
+        const context = ctx.getContext("2d");
+        if (monthlyComparisonChart) monthlyComparisonChart.destroy();
+        
+        // Daten nach Monaten gruppieren
+        const monthlyData = {};
+        data.forEach(e => {
+            const date = new Date(e.date);
+            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            const monthLabel = date.toLocaleDateString('de-DE', { month: 'short', year: 'numeric' });
+            
+            if (!monthlyData[monthKey]) {
+                monthlyData[monthKey] = { label: monthLabel, amount: 0 };
+            }
+            monthlyData[monthKey].amount += e.amount;
+        });
+        
+        // Sortieren nach Datum (neueste zuerst, aber maximal 12 Monate)
+        const sortedMonths = Object.entries(monthlyData)
+            .sort((a, b) => b[0].localeCompare(a[0]))
+            .slice(0, 12)
+            .reverse(); // Für Chart von alt zu neu
+        
+        const labels = sortedMonths.map(([key, data]) => data.label);
+        const amounts = sortedMonths.map(([key, data]) => data.amount);
+        
+        monthlyComparisonChart = new Chart(context, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Monatliche Ausgaben',
+                    data: amounts,
+                    backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toFixed(2) + ' €';
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Ausgaben: ' + context.parsed.y.toFixed(2) + ' €';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function updateTotalSavingsChart() {
+        const ctx = $("#totalSavingsChart");
+        if (!ctx) return;
+        
+        const context = ctx.getContext("2d");
+        if (totalSavingsChart) totalSavingsChart.destroy();
+        
+        // Berechne Gesamtersparnis über alle Monate mit Budgets
+        let totalSavings = 0;
+        let totalBudget = 0;
+        let totalSpent = 0;
+        
+        // Sammle alle Monate mit Ausgaben
+        const monthlyExpenses = {};
+        data.forEach(e => {
+            const date = new Date(e.date);
+            const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
+            if (!monthlyExpenses[monthKey]) monthlyExpenses[monthKey] = 0;
+            monthlyExpenses[monthKey] += e.amount;
+        });
+        
+        // Für Demo-Zwecke nehmen wir an, dass das aktuelle Budget für alle Monate galt
+        // In einer echten App würden historische Budgets gespeichert
+        if (monthlyLimit > 0) {
+            Object.values(monthlyExpenses).forEach(spent => {
+                totalBudget += monthlyLimit;
+                totalSpent += spent;
+                if (spent < monthlyLimit) {
+                    totalSavings += (monthlyLimit - spent);
+                }
+            });
+        }
+        
+        const data_chart = {
+            labels: ['Gespart', 'Ausgegeben', 'Budget übrig'],
+            datasets: [{
+                data: [
+                    Math.max(0, totalSavings),
+                    totalSpent,
+                    Math.max(0, totalBudget - totalSpent - totalSavings)
+                ],
+                backgroundColor: [
+                    'rgba(34, 197, 94, 0.8)',   // Grün für Ersparnis
+                    'rgba(239, 68, 68, 0.8)',   // Rot für Ausgegeben
+                    'rgba(156, 163, 175, 0.8)'  // Grau für Budget übrig
+                ],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        };
+        
+        totalSavingsChart = new Chart(context, {
+            type: 'doughnut',
+            data: data_chart,
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                return `${label}: ${value.toFixed(2)} €`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    /* ---------- Alles aktualisieren ---------- */
+    function refreshAll() { 
+        refreshEntries(); 
+        refreshSummary(); 
+        refreshMonthList(); 
+        updateMonthlyChart(); 
+        updateCategoryChart(); 
+        updateMonthlyComparisonChart();
+        updateTotalSavingsChart();
+    }
+
+    /* ---------- Weitere Sicherheitsmaßnahmen ---------- */
+    
+    // Input-Validierung für alle Formulareingaben
+    function setupInputValidation() {
+        // Betragseingabe
+        $("#amount").addEventListener("input", function(e) {
+            let value = e.target.value;
+            // Entferne alle Zeichen außer Zahlen, Punkt und Komma
+            value = value.replace(/[^0-9.,]/g, '');
+            // Ersetze Komma durch Punkt
+            value = value.replace(',', '.');
+            // Maximal 2 Dezimalstellen
+            const parts = value.split('.');
+            if (parts.length > 2) {
+                value = parts[0] + '.' + parts.slice(1).join('');
+            }
+            if (parts[1] && parts[1].length > 2) {
+                value = parts[0] + '.' + parts[1].substring(0, 2);
+            }
+            e.target.value = value;
+        });
+        
+        // Budget-Eingabe
+        $("#limitInput").addEventListener("input", function(e) {
+            let value = e.target.value;
+            value = value.replace(/[^0-9.,]/g, '');
+            value = value.replace(',', '.');
+            const parts = value.split('.');
+            if (parts.length > 2) {
+                value = parts[0] + '.' + parts.slice(1).join('');
+            }
+            if (parts[1] && parts[1].length > 2) {
+                value = parts[0] + '.' + parts[1].substring(0, 2);
+            }
+            e.target.value = value;
+        });
+        
+        // Filter-Eingabe
+        $("#filterInput").addEventListener("input", function(e) {
+            e.target.value = sanitizeInput(e.target.value);
+        });
+        
+        // Login/Register Felder
+        $("#loginUser, #regUser").forEach(input => {
+            if (input) {
+                input.addEventListener("input", function(e) {
+                    e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+                });
+            }
+        });
+        
+        $("#loginCode, #regCode, #cpOldCode, #cpNewCode").forEach(input => {
+            if (input) {
+                input.addEventListener("input", function(e) {
+                    e.target.value = e.target.value.replace(/[^0-9]/g, '').substring(0, 4);
+                });
+            }
+        });
+    }
+    
+    // Schutz vor CSRF-Angriffen
+    function setupCSRFProtection() {
+        // Füge CSRF-Token zu wichtigen Requests hinzu
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options = {}) {
+            if (options.method && options.method.toUpperCase() !== 'GET') {
+                if (!options.headers) options.headers = {};
+                options.headers['X-CSRF-Token'] = generateCSRFToken();
+            }
+            return originalFetch.call(this, url, options);
+        };
+    }
+    
+    // Fehlerbehandlung und Logging
+    function setupErrorHandling() {
+        window.addEventListener('error', function(e) {
+            console.error('JavaScript-Fehler:', e.error);
+            // In einer Produktionsumgebung würde hier Logging an Server erfolgen
+        });
+        
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('Unbehandelte Promise-Ablehnung:', e.reason);
+            e.preventDefault();
+        });
+    }
+    
+    // Schutz vor Clickjacking
+    function setupClickjackingProtection() {
+        if (window.top !== window.self) {
+            // Seite wird in einem Frame geladen - warnen oder blockieren
+            console.warn('Anwendung wird in einem Frame geladen - potentielle Sicherheitsgefahr');
+        }
+    }
+    
+    // Initialisierung aller Sicherheitsmaßnahmen
+    document.addEventListener('DOMContentLoaded', function() {
+        setupInputValidation();
+        setupCSRFProtection();
+        setupErrorHandling();
+        setupClickjackingProtection();
+        
+        // Deaktiviere Right-Click Menü für zusätzlichen Schutz
+        document.addEventListener('contextmenu', function(e) {
+            if (!e.target.closest('#quickCategories')) {
+                e.preventDefault();
+            }
+        });
+        
+        // Deaktiviere F12 und Entwicklertools-Shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'F12' || 
+                (e.ctrlKey && e.shiftKey && e.key === 'I') || 
+                (e.ctrlKey && e.shiftKey && e.key === 'C') ||
+                (e.ctrlKey && e.key === 'U')) {
+                e.preventDefault();
+                console.warn('Entwicklertools wurden blockiert');
+                return false;
+            }
+        });
+    });
+
+    </script>
+</body>
 </html>
