@@ -985,7 +985,7 @@ function renderQuickCats() {
 
     /* ---------- Kategorien rendern ---------- */
     function renderQuickCats() { 
-        const container = $("#quickCategories"); 
+        const container = document.querySelector("#quickCategories"); 
         container.innerHTML = ""; 
         
         quickCats.forEach(q => { 
@@ -1026,11 +1026,12 @@ function renderQuickCats() {
 
     function selectCategory(cat) { 
         selectedCat = sanitizeInput(cat); 
-        $("#catWarning").classList.add("hidden"); 
+        const catWarning = document.querySelector("#catWarning");
+        if (catWarning) catWarning.classList.add("hidden"); 
         
         // Visuelle Hervorhebung
-        $("#quickCategories button").forEach(b => b.classList.remove("bg-blue-500", "text-white")); 
-        const btn = Array.from($("#quickCategories button")).find(b => b.textContent.includes(cat)); 
+        document.querySelectorAll("#quickCategories button").forEach(b => b.classList.remove("bg-blue-500", "text-white")); 
+        const btn = Array.from(document.querySelectorAll("#quickCategories button")).find(b => b.textContent.includes(cat)); 
         if (btn) { 
             btn.classList.add("bg-blue-500", "text-white"); 
         } 
@@ -1102,13 +1103,13 @@ function renderQuickCats() {
             selectedCat = null; 
             $("#catWarning").classList.add("hidden"); 
             
-            // Kategorie-Auswahl zurücksetzen
-            $("#quickCategories button").forEach(b => b.classList.remove("bg-blue-500", "text-white")); 
-        } catch (error) {
-            console.error("Fehler beim Hinzufügen der Ausgabe:", error);
-            alert("Fehler beim Hinzufügen der Ausgabe: " + error.message);
-        }
-    });
+    // Kategorie-Auswahl zurücksetzen
+document.querySelectorAll("#quickCategories button").forEach(b => b.classList.remove("bg-blue-500", "text-white"));
+} catch (error) {
+    console.error("Fehler beim Hinzufügen der Ausgabe:", error);
+    alert("Fehler beim Hinzufügen der Ausgabe: " + error.message);
+}
+});
 
     /* ---------- Einträge löschen ---------- */
     function deleteEntry(id) { 
@@ -1167,24 +1168,28 @@ function renderQuickCats() {
             refreshAll(); 
         }; 
     });
-
-    /* ---------- Einträge anzeigen ---------- */
-    function refreshEntries() { 
-        const list = $("#entries"); 
-        list.innerHTML = ""; 
-        
-        const filtered = getFilteredData(); 
-        if (filtered.length === 0) {
-            const noDataItem = document.createElement("li");
-            noDataItem.className = "text-gray-500 italic";
-            noDataItem.textContent = "Keine Einträge vorhanden";
-            list.appendChild(noDataItem);
-            return;
-        }
-        
+/* ---------- Einträge anzeigen ---------- */
+function refreshEntries() {
+    const list = $("#entries");
+    list.innerHTML = "";
+    
+    // Variablen für Pagination
+    let displayedEntries = 0;
+    const entriesPerPage = 10;
+    
+    const allFilteredEntries = getFilteredData();
+    if (allFilteredEntries.length === 0) {
+        const noDataItem = document.createElement("li");
+        noDataItem.className = "text-gray-500 italic";
+        noDataItem.textContent = "Keine Einträge vorhanden";
+        list.appendChild(noDataItem);
+        return;
+    }
+    
+    function displayEntries() {
         // Nach Datum gruppieren
         const groups = {};
-        filtered.forEach(e => {
+        allFilteredEntries.forEach(e => {
             const date = new Date(e.date);
             const dateStr = `${date.getDate().toString().padStart(2, '0')}.${(date.getMonth()+1).toString().padStart(2, '0')}.${date.getFullYear()}`;
             if (!groups[dateStr]) groups[dateStr] = [];
@@ -1200,20 +1205,35 @@ function renderQuickCats() {
             return dateB - dateA;
         });
         
-        // Einträge nach Datum gruppiert anzeigen
+        // Flache Liste aller Einträge erstellen
+        let flatEntries = [];
         sortedDates.forEach(dateStr => {
-            const entries = groups[dateStr];
-            
-            // Datums-Header
-            const dateHeader = document.createElement("li");
-            dateHeader.className = "font-medium text-gray-600 pt-2";
-            dateHeader.textContent = sanitizeHTML(dateStr);
-            list.appendChild(dateHeader);
-            
-            // Einträge für dieses Datum
-            entries.forEach(e => {
-                const item = document.createElement("li");
-                item.className = "bg-white p-3 rounded shadow";
+            flatEntries.push({ type: 'date', dateStr: dateStr });
+            groups[dateStr].forEach(entry => {
+                flatEntries.push({ type: 'entry', data: entry });
+            });
+        });
+        
+        // Nur die nächsten entriesPerPage Einträge anzeigen
+        const endIndex = Math.min(displayedEntries + entriesPerPage, flatEntries.length);
+        const entriesToShow = flatEntries.slice(displayedEntries, endIndex);
+        
+        let currentDateShown = null;
+        
+        entriesToShow.forEach(item => {
+            if (item.type === 'date') {
+                // Nur Datums-Header anzeigen wenn noch nicht gezeigt
+                if (currentDateShown !== item.dateStr) {
+                    const dateHeader = document.createElement("li");
+                    dateHeader.className = "font-medium text-gray-600 pt-2";
+                    dateHeader.textContent = sanitizeHTML(item.dateStr);
+                    list.appendChild(dateHeader);
+                    currentDateShown = item.dateStr;
+                }
+            } else if (item.type === 'entry') {
+                const e = item.data;
+                const listItem = document.createElement("li");
+                listItem.className = "bg-white p-3 rounded shadow";
                 
                 // Kategorie-Icon finden
                 const catObj = quickCats.find(q => q.cat === e.category);
@@ -1257,14 +1277,39 @@ function renderQuickCats() {
                 
                 buttonContainer.appendChild(deleteButton);
                 
-                item.appendChild(entryContent);
-                item.appendChild(buttonContainer);
+                listItem.appendChild(entryContent);
+                listItem.appendChild(buttonContainer);
                 
-                list.appendChild(item);
-            });
+                list.appendChild(listItem);
+            }
         });
+        
+        displayedEntries = endIndex;
+        
+        // "Mehr laden" Button anzeigen wenn noch weitere Einträge vorhanden
+        const existingLoadMoreBtn = document.getElementById("loadMoreBtn");
+        if (existingLoadMoreBtn) {
+            existingLoadMoreBtn.remove();
+        }
+        
+        if (displayedEntries < flatEntries.length) {
+            const loadMoreBtn = document.createElement("li");
+            loadMoreBtn.id = "loadMoreBtn";
+            loadMoreBtn.className = "text-center py-3";
+            
+            const button = document.createElement("button");
+            button.className = "bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600";
+            button.textContent = "Mehr laden";
+            button.onclick = displayEntries;
+            
+            loadMoreBtn.appendChild(button);
+            list.appendChild(loadMoreBtn);
+        }
     }
-
+    
+    // Erste Ladung der Einträge
+    displayEntries();
+}
     /* ---------- Übersicht aktualisieren ---------- */
     function refreshSummary() { 
         const list = $("#summary"); 
