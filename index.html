@@ -257,7 +257,7 @@
     
     let currentUser = null, data = [], quickCats = [], monthlyLimit = 0; 
     let unsubExp = null, unsubQC = null, unsubLimits = null; 
-    let selectedCat = null, currentRange = "current"; 
+     let currentRange = "all";
     let monthlyChart = null, categoryChart = null, monthlyComparisonChart = null, totalSavingsChart = null; 
     let sessionTimeout = null;
 
@@ -1126,58 +1126,87 @@ document.querySelectorAll("#quickCategories button").forEach(b => b.classList.re
         }); 
     }
 
-    /* ---------- Filter ---------- */
-    $("#filterInput").addEventListener("input", refreshAll);
+  
 
-    function getFilteredData() { 
-        const filter = $("#filterInput").value.toLowerCase().trim(); 
-        let filtered = data; 
-        
-        if (filter) { 
-            filtered = data.filter(d => d.category.toLowerCase().includes(filter)); 
-        } 
-        
-        // Nach Zeitraum filtern
-        const now = new Date(); 
-        const currentYear = now.getFullYear(); 
-        const currentMonth = now.getMonth(); 
-        
-        if (currentRange === "current") { 
-            filtered = filtered.filter(d => { 
-                const date = new Date(d.date); 
-                return date.getFullYear() === currentYear && date.getMonth() === currentMonth; 
-            }); 
-        } else if (currentRange === "last") { 
-            const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1; 
-            const lastYear = currentMonth === 0 ? currentYear - 1 : currentYear; 
-            filtered = filtered.filter(d => { 
-                const date = new Date(d.date); 
-                return date.getFullYear() === lastYear && date.getMonth() === lastMonth; 
-            }); 
-        } 
-        
-        return filtered; 
+/* ---------- Filter ---------- */
+$("#filterInput").addEventListener("input", refreshAll);
+
+function getFilteredData() {
+    const filter = $("#filterInput").value.toLowerCase().trim();
+    let filtered = data;
+    
+    if (filter) {
+        filtered = data.filter(d => d.category.toLowerCase().includes(filter));
     }
+    
+    // Nach Zeitraum filtern
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    
+    if (currentRange === "current") {
+        filtered = filtered.filter(d => {
+            const date = new Date(d.date);
+            return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
+        });
+    } else if (currentRange === "last") {
+        const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+        const lastYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+        filtered = filtered.filter(d => {
+            const date = new Date(d.date);
+            return date.getFullYear() === lastYear && date.getMonth() === lastMonth;
+        });
+    }
+    // Wenn currentRange === "all", wird nicht gefiltert
+    
+    return filtered;
+}
 
-    /* ---------- Range-Buttons ---------- */
-    $(".range-btn").forEach(btn => { 
-        btn.onclick = () => { 
-            currentRange = btn.dataset.range; 
-            $(".range-btn").forEach(b => b.classList.remove("bg-blue-800")); 
-            btn.classList.add("bg-blue-800"); 
-            refreshAll(); 
-        }; 
+/* ---------- Range-Buttons ---------- */
+document.addEventListener('DOMContentLoaded', function() {
+    // Event-Listener für Range-Buttons
+    document.querySelectorAll(".range-btn").forEach(btn => {
+        btn.addEventListener('click', function() {
+            currentRange = this.dataset.range;
+            
+            // Alle Buttons zurücksetzen
+            document.querySelectorAll(".range-btn").forEach(b => {
+                b.classList.remove("bg-blue-800");
+                b.classList.add("bg-blue-600");
+            });
+            
+            // Aktiven Button markieren
+            this.classList.remove("bg-blue-600");
+            this.classList.add("bg-blue-800");
+            
+            // Debug-Ausgabe
+            console.log("Gewählter Zeitraum:", currentRange);
+            
+            // Alle Ansichten aktualisieren
+            refreshAll();
+        });
     });
+    
+    // Setze initial "Alle Monate" als aktiv
+    const allButton = document.querySelector('.range-btn[data-range="all"]');
+    if (allButton) {
+        allButton.classList.remove("bg-blue-600");
+        allButton.classList.add("bg-blue-800");
+    }
+});
+
 /* ---------- Einträge anzeigen ---------- */
 function refreshEntries() {
     const list = $("#entries");
     list.innerHTML = "";
     
+    // Gefilterte Daten holen
+    const allFilteredEntries = getFilteredData();
+    
     // Variablen für Pagination
     let displayedEntries = 0;
     const entriesPerPage = 10;
     
-    const allFilteredEntries = getFilteredData();
     if (allFilteredEntries.length === 0) {
         const noDataItem = document.createElement("li");
         noDataItem.className = "text-gray-500 italic";
@@ -1185,7 +1214,7 @@ function refreshEntries() {
         list.appendChild(noDataItem);
         return;
     }
-    
+
     function displayEntries() {
         // Nach Datum gruppieren
         const groups = {};
@@ -1195,7 +1224,7 @@ function refreshEntries() {
             if (!groups[dateStr]) groups[dateStr] = [];
             groups[dateStr].push(e);
         });
-        
+
         // Nach Datum sortieren (neueste zuerst)
         const sortedDates = Object.keys(groups).sort((a, b) => {
             const [dayA, monthA, yearA] = a.split('.').map(Number);
@@ -1204,7 +1233,7 @@ function refreshEntries() {
             const dateB = new Date(yearB, monthB - 1, dayB);
             return dateB - dateA;
         });
-        
+
         // Flache Liste aller Einträge erstellen
         let flatEntries = [];
         sortedDates.forEach(dateStr => {
@@ -1213,20 +1242,19 @@ function refreshEntries() {
                 flatEntries.push({ type: 'entry', data: entry });
             });
         });
-        
+
         // Nur die nächsten entriesPerPage Einträge anzeigen
         const endIndex = Math.min(displayedEntries + entriesPerPage, flatEntries.length);
         const entriesToShow = flatEntries.slice(displayedEntries, endIndex);
         
         let currentDateShown = null;
-        
         entriesToShow.forEach(item => {
             if (item.type === 'date') {
                 // Nur Datums-Header anzeigen wenn noch nicht gezeigt
                 if (currentDateShown !== item.dateStr) {
                     const dateHeader = document.createElement("li");
                     dateHeader.className = "font-medium text-gray-600 pt-2";
-                    dateHeader.textContent = sanitizeHTML(item.dateStr);
+                    dateHeader.textContent = item.dateStr;
                     list.appendChild(dateHeader);
                     currentDateShown = item.dateStr;
                 }
@@ -1253,7 +1281,7 @@ function refreshEntries() {
                 
                 const categorySpan = document.createElement("span");
                 categorySpan.className = "font-medium";
-                categorySpan.textContent = sanitizeHTML(e.category);
+                categorySpan.textContent = e.category;
                 
                 leftSide.appendChild(iconSpan);
                 leftSide.appendChild(categorySpan);
@@ -1279,13 +1307,12 @@ function refreshEntries() {
                 
                 listItem.appendChild(entryContent);
                 listItem.appendChild(buttonContainer);
-                
                 list.appendChild(listItem);
             }
         });
-        
+
         displayedEntries = endIndex;
-        
+
         // "Mehr laden" Button anzeigen wenn noch weitere Einträge vorhanden
         const existingLoadMoreBtn = document.getElementById("loadMoreBtn");
         if (existingLoadMoreBtn) {
@@ -1306,122 +1333,149 @@ function refreshEntries() {
             list.appendChild(loadMoreBtn);
         }
     }
-    
+
     // Erste Ladung der Einträge
     displayEntries();
 }
-    /* ---------- Übersicht aktualisieren ---------- */
-    function refreshSummary() { 
-        const list = $("#summary"); 
-        list.innerHTML = ""; 
-        
-        const filtered = getFilteredData(); 
-        const categories = {}; 
-        let total = 0; 
-        
-        filtered.forEach(e => { 
-            if (!categories[e.category]) categories[e.category] = 0; 
-            categories[e.category] += e.amount; 
-            total += e.amount; 
-        }); 
-        
-        // Gesamt
-        const totalItem = document.createElement("li"); 
-        totalItem.className = "bg-blue-100 p-3 rounded shadow font-bold"; 
-        totalItem.innerHTML = `
-            <div class="flex justify-between">
-                <span>📊 Gesamt</span>
-                <span>${total.toFixed(2)} €</span>
-            </div>
-        `; 
-        list.appendChild(totalItem); 
-        
-        // Budget-Anzeige aktualisieren
-        updateBudgetDisplay(total);
-        
-        // Nach Betrag sortieren
-        const sortedCats = Object.entries(categories).sort((a, b) => b[1] - a[1]); 
-        
-        sortedCats.forEach(([cat, sum]) => { 
-            const item = document.createElement("li"); 
-            item.className = "bg-white p-3 rounded shadow"; 
-            
-            // Icon finden
-            const catObj = quickCats.find(q => q.cat === cat);
-            const icon = catObj ? catObj.icon : "📋";
-            
-            item.innerHTML = `
-                <div class="flex justify-between items-center">
-                    <div class="flex items-center">
-                        <span class="mr-2 emoji-icon">${icon}</span>
-                        <span>${sanitizeHTML(cat)}</span>
-                    </div>
-                    <span class="font-semibold">${sum.toFixed(2)} €</span>
-                </div>
-            `; 
-            list.appendChild(item); 
-        }); 
-    }
+
+/* ---------- Übersicht aktualisieren ---------- */
+function refreshSummary() {
+    const list = $("#summary");
+    list.innerHTML = "";
     
-    /* ---------- Budget-Anzeige aktualisieren ---------- */
-    function updateBudgetDisplay(currentSpent) {
-        const limitProgress = $("#limitProgress");
-        const savingsDisplay = $("#savingsDisplay");
+    // Gefilterte Daten verwenden
+    const filtered = getFilteredData();
+    const categories = {};
+    let total = 0;
+    
+    filtered.forEach(e => {
+        if (!categories[e.category]) categories[e.category] = 0;
+        categories[e.category] += e.amount;
+        total += e.amount;
+    });
+
+    // Gesamt
+    const totalItem = document.createElement("li");
+    totalItem.className = "bg-blue-100 p-3 rounded shadow font-bold";
+    totalItem.innerHTML = `
+        <div class="flex justify-between">
+            <span>📊 Gesamt</span>
+            <span>${total.toFixed(2)} €</span>
+        </div>
+    `;
+    list.appendChild(totalItem);
+
+    // Budget-Anzeige aktualisieren
+    updateBudgetDisplay(total);
+
+    // Nach Betrag sortieren
+    const sortedCats = Object.entries(categories).sort((a, b) => b[1] - a[1]);
+    
+    sortedCats.forEach(([cat, sum]) => {
+        const item = document.createElement("li");
+        item.className = "bg-white p-3 rounded shadow";
         
-        if (monthlyLimit > 0) {
-            show(limitProgress);
-            show(savingsDisplay);
-            
-            const percentage = Math.min((currentSpent / monthlyLimit) * 100, 100);
-            const remaining = monthlyLimit - currentSpent;
-            
-            $("#limitText").textContent = `${currentSpent.toFixed(2)} € / ${monthlyLimit.toFixed(2)} €`;
-            $("#limitBar").style.width = `${percentage}%`;
-            
-            if (percentage > 100) {
-                $("#limitBar").classList.add("over-limit");
-                $("#savingsAmount").textContent = `${Math.abs(remaining).toFixed(2)} € Überschreitung`;
-                $("#savingsAmount").className = "text-lg font-bold text-red-600";
-            } else {
-                $("#limitBar").classList.remove("over-limit");
-                $("#savingsAmount").textContent = `${remaining.toFixed(2)} €`;
-                $("#savingsAmount").className = "text-lg font-bold text-green-600";
+        // Icon finden
+        const catObj = quickCats.find(q => q.cat === cat);
+        const icon = catObj ? catObj.icon : "📋";
+        
+        item.innerHTML = `
+            <div class="flex justify-between items-center">
+                <div class="flex items-center">
+                    <span class="mr-2 emoji-icon">${icon}</span>
+                    <span>${cat}</span>
+                </div>
+                <span class="font-semibold">${sum.toFixed(2)} €</span>
+            </div>
+        `;
+        list.appendChild(item);
+    });
+}
+
+/* ---------- Budget-Anzeige aktualisieren ---------- */
+function updateBudgetDisplay(currentSpent) {
+    const limitProgress = $("#limitProgress");
+    const savingsDisplay = $("#savingsDisplay");
+    
+    if (monthlyLimit > 0) {
+        // Zeige Budget-Anzeige nur wenn ein Limit gesetzt ist
+        if (limitProgress) limitProgress.style.display = 'block';
+        if (savingsDisplay) savingsDisplay.style.display = 'block';
+        
+        const percentage = Math.min((currentSpent / monthlyLimit) * 100, 100);
+        const remaining = monthlyLimit - currentSpent;
+        
+        const limitText = $("#limitText");
+        const limitBar = $("#limitBar");
+        const savingsAmount = $("#savingsAmount");
+        
+        if (limitText) limitText.textContent = `${currentSpent.toFixed(2)} € / ${monthlyLimit.toFixed(2)} €`;
+        if (limitBar) limitBar.style.width = `${percentage}%`;
+        
+        if (percentage > 100) {
+            if (limitBar) limitBar.classList.add("over-limit");
+            if (savingsAmount) {
+                savingsAmount.textContent = `${Math.abs(remaining).toFixed(2)} € Überschreitung`;
+                savingsAmount.className = "text-lg font-bold text-red-600";
             }
         } else {
-            hide(limitProgress);
-            hide(savingsDisplay);
+            if (limitBar) limitBar.classList.remove("over-limit");
+            if (savingsAmount) {
+                savingsAmount.textContent = `${remaining.toFixed(2)} €`;
+                savingsAmount.className = "text-lg font-bold text-green-600";
+            }
         }
+    } else {
+        // Verstecke Budget-Anzeige wenn kein Limit gesetzt ist
+        if (limitProgress) limitProgress.style.display = 'none';
+        if (savingsDisplay) savingsDisplay.style.display = 'none';
     }
+}
 
-    /* ---------- Monatsübersicht ---------- */
-    function refreshMonthList() { 
-        const list = $("#monthList"); 
-        list.innerHTML = ""; 
-        
-        const months = {}; 
-        data.forEach(e => { 
-            const date = new Date(e.date); 
-            const key = `${date.getFullYear()}-${date.getMonth()}`; 
-            const label = `${date.toLocaleDateString('de-DE', {month: 'long', year: 'numeric'})}`; 
-            if (!months[key]) months[key] = {label, sum: 0}; 
-            months[key].sum += e.amount; 
-        }); 
-        
-        Object.values(months)
-            .sort((a, b) => b.label.localeCompare(a.label)) 
-            .forEach(m => { 
-                const item = document.createElement("li"); 
-                item.className = "bg-white p-2 rounded shadow text-sm"; 
-                item.innerHTML = `
-                    <div class="flex justify-between">
-                        <span>${sanitizeHTML(m.label)}</span>
-                        <span class="font-semibold">${m.sum.toFixed(2)} €</span>
-                    </div>
-                `; 
-                list.appendChild(item); 
-            }); 
-    }
+/* ---------- Monatsübersicht ---------- */
+function refreshMonthList() {
+    const list = $("#monthList");
+    if (!list) return;
+    
+    list.innerHTML = "";
+    
+    const months = {};
+    // Verwende alle Daten für Monatsübersicht (nicht gefiltert)
+    data.forEach(e => {
+        const date = new Date(e.date);
+        const key = `${date.getFullYear()}-${date.getMonth()}`;
+        const label = `${date.toLocaleDateString('de-DE', {month: 'long', year: 'numeric'})}`;
+        if (!months[key]) months[key] = {label, sum: 0};
+        months[key].sum += e.amount;
+    });
 
+    Object.values(months)
+        .sort((a, b) => b.label.localeCompare(a.label))
+        .forEach(m => {
+            const item = document.createElement("li");
+            item.className = "bg-white p-2 rounded shadow text-sm";
+            item.innerHTML = `
+                <div class="flex justify-between">
+                    <span>${m.label}</span>
+                    <span class="font-semibold">${m.sum.toFixed(2)} €</span>
+                </div>
+            `;
+            list.appendChild(item);
+        });
+}
+
+// Hilfsfunktion zum Aktualisieren aller Ansichten
+function refreshAll() {
+    refreshEntries();
+    refreshSummary();
+    refreshMonthList();
+    
+    // Charts aktualisieren falls vorhanden
+    if (typeof updateCategoryChart === 'function') updateCategoryChart();
+    if (typeof updateMonthlyChart === 'function') updateMonthlyChart();
+    if (typeof updateMonthlyComparisonChart === 'function') updateMonthlyComparisonChart();
+    if (typeof updateTotalSavingsChart === 'function') updateTotalSavingsChart();
+}
     /* ---------- Charts ---------- */
     function updateMonthlyChart() { 
         const ctx = $("#monthlyChart");
